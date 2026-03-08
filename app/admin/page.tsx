@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { supabase } from "./lib/supabase";
+import { supabase } from "../lib/supabase";
 
 // --- UTILIDADES DE TIEMPO (BARRANQUILLA) ---
 const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
