@@ -24,8 +24,8 @@ export const metadata: Metadata = {
   description: "Portal digital para familias y dirección deportiva.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/logob.png",
-    apple: "/logob.png", // <- ¡Esta es la línea mágica para los iPhone!
+    icon: "/icon-color.png",    // Icono a color para navegadores
+    apple: "/icon-color.png",   // Icono a color para iPhone/iPad
   },
   appleWebApp: {
     capable: true,
