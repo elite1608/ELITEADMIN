@@ -23,6 +23,10 @@ export const metadata: Metadata = {
   title: "Elite Gymnastics",
   description: "Portal digital para familias y dirección deportiva.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logob.png",
+    apple: "/logob.png", // <- ¡Esta es la línea mágica para los iPhone!
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
