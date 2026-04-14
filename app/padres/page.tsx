@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from '@supabase/supabase-js';
 import { 
     Lock, User, LogOut, CheckCircle2, AlertCircle, 
-    Medal, CalendarDays, Wallet, MessageSquare, Bell, ChevronLeft, TrendingUp, Send, RefreshCw
+    Medal, CalendarDays, Wallet, MessageSquare, Bell, ChevronLeft, TrendingUp, Send, RefreshCw, X, Upload
 } from "lucide-react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -32,6 +32,11 @@ export default function PortalPadres() {
     const [confirmarClave, setConfirmarClave] = useState("");
     const [gimnastaTemporal, setGimnastaTemporal] = useState<any>(null);
 
+    // NUEVOS ESTADOS PARA PAGOS Y ALERTAS
+    const [alertaSeguridad, setAlertaSeguridad] = useState<{msg: string, tipo: 'error' | 'exito'} | null>(null);
+    const [archivoPago, setArchivoPago] = useState<File | null>(null);
+    const [subiendoPago, setSubiendoPago] = useState(false);
+
     const [vistaPadre, setVistaPadre] = useState<'inicio' | 'finanzas' | 'asistencia' | 'torneos' | 'mensajes'>('inicio');
 
     const loginPadres = async (e: any) => {
@@ -39,7 +44,6 @@ export default function PortalPadres() {
         setCargando(true);
         setErrorLogin(false);
 
-        // Busca a la niña por nombre y verifica que la clave sea exacta
         const { data } = await supabase
             .from('gimnastas')
             .select('*, paquetes(*)')
@@ -49,11 +53,9 @@ export default function PortalPadres() {
         
         if (data) {
             if (data.requiere_cambio_clave) {
-                // Si es el primer ingreso, lo mandamos a la pantalla de cambio de clave
                 setGimnastaTemporal(data);
                 setNecesitaCambiarClave(true);
             } else {
-                // Si ya la había cambiado antes, entra normal
                 setGimnasta(data);
                 await refrescarDatosSilencioso(data.id);
                 setVistaPadre('inicio');
@@ -66,11 +68,16 @@ export default function PortalPadres() {
 
     const guardarNuevaClave = async (e: any) => {
         e.preventDefault();
-        if (nuevaClave.length < 6) return alert("La contraseña debe tener al menos 6 caracteres.");
-        if (nuevaClave !== confirmarClave) return alert("Las contraseñas no coinciden. Intenta de nuevo.");
+        setAlertaSeguridad(null);
+
+        if (nuevaClave.length < 6) {
+            return setAlertaSeguridad({ msg: "La contraseña debe tener al menos 6 caracteres.", tipo: 'error' });
+        }
+        if (nuevaClave !== confirmarClave) {
+            return setAlertaSeguridad({ msg: "Las contraseñas no coinciden. Revisa e intenta de nuevo.", tipo: 'error' });
+        }
 
         setCargando(true);
-        // Actualizamos la clave en la base de datos y quitamos la bandera de primer ingreso
         const { error } = await supabase
             .from('gimnastas')
             .update({ 
@@ -80,16 +87,56 @@ export default function PortalPadres() {
             .eq('id', gimnastaTemporal.id);
 
         if (!error) {
-            alert("¡Contraseña actualizada con éxito!");
-            // Lo dejamos entrar al portal
-            setGimnasta(gimnastaTemporal);
-            await refrescarDatosSilencioso(gimnastaTemporal.id);
-            setVistaPadre('inicio');
-            setNecesitaCambiarClave(false);
+            setAlertaSeguridad({ msg: "¡Contraseña actualizada con éxito!", tipo: 'exito' });
+            setTimeout(async () => {
+                setGimnasta(gimnastaTemporal);
+                await refrescarDatosSilencioso(gimnastaTemporal.id);
+                setVistaPadre('inicio');
+                setNecesitaCambiarClave(false);
+                setAlertaSeguridad(null);
+            }, 1500);
         } else {
-            alert("Hubo un error al guardar. Intenta de nuevo.");
+            setAlertaSeguridad({ msg: "Hubo un error al guardar. Intenta de nuevo.", tipo: 'error' });
         }
         setCargando(false);
+    };
+
+    // FUNCIÓN PARA SUBIR COMPROBANTE DE PAGO
+    const subirComprobante = async () => {
+        if (!archivoPago || !gimnasta) return;
+        setSubiendoPago(true);
+
+        try {
+            // 1. Subir imagen a Storage
+            const fileExt = archivoPago.name.split('.').pop();
+            const fileName = `${Date.now()}_${gimnasta.id}.${fileExt}`;
+            
+            const { error: uploadError } = await supabase.storage
+                .from('comprobantes')
+                .upload(fileName, archivoPago);
+
+            if (uploadError) throw uploadError;
+
+            const { data: urlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
+
+            // 2. Registrar en la tabla de revisión
+            const { error: dbError } = await supabase.from('comprobantes_revision').insert([{
+                gimnasta_id: gimnasta.id,
+                url_comprobante: urlData.publicUrl,
+                monto: mora.deudaTotal,
+                estado: 'pendiente'
+            }]);
+
+            if (dbError) throw dbError;
+
+            setAlertaSeguridad({ msg: "Comprobante enviado con éxito. Dirección validará tu pago pronto.", tipo: 'exito' });
+            setArchivoPago(null);
+        } catch (error) {
+            console.error(error);
+            setAlertaSeguridad({ msg: "Error al enviar el comprobante. Intenta de nuevo.", tipo: 'error' });
+        } finally {
+            setSubiendoPago(false);
+        }
     };
 
     const refrescarDatosSilencioso = async (idGimnasta: number) => {
@@ -102,7 +149,6 @@ export default function PortalPadres() {
         await cargarMensajesManual(idGimnasta);
     };
 
-    // Función específica para cargar mensajes manualmente
     const cargarMensajesManual = async (idGimnasta: number) => {
         setActualizandoMensajes(true);
         const { data: msjs } = await supabase.from('mensajes').select('*').eq('gimnasta_id', idGimnasta).order('created_at', { ascending: true });
@@ -110,14 +156,13 @@ export default function PortalPadres() {
         setActualizandoMensajes(false);
     };
 
-    // Marcar como leídos automáticamente al entrar al chat
     useEffect(() => {
         const marcarComoLeidos = async () => {
             if (vistaPadre === 'mensajes' && gimnasta) {
                 const noLeidos = mensajesChat.filter(m => m.remitente === 'admin' && !m.leido);
                 if (noLeidos.length > 0) {
                     await supabase.from('mensajes').update({ leido: true }).eq('gimnasta_id', gimnasta.id).eq('remitente', 'admin').eq('leido', false);
-                    cargarMensajesManual(gimnasta.id); // Usamos la carga manual aquí
+                    cargarMensajesManual(gimnasta.id);
                 }
             }
         };
@@ -132,7 +177,6 @@ export default function PortalPadres() {
         const textoMensaje = nuevoMensaje;
         setNuevoMensaje("");
 
-        // Mostrar instantáneamente
         const mensajeTemporal = {
             id: Date.now(), gimnasta_id: gimnasta.id, remitente: 'padre',
             mensaje: textoMensaje, leido: false, created_at: new Date().toISOString()
@@ -143,10 +187,7 @@ export default function PortalPadres() {
             gimnasta_id: gimnasta.id, remitente: 'padre', mensaje: textoMensaje, leido: false
         }]);
 
-        if (error) {
-            console.error("Error al enviar:", error);
-            alert("⚠️ Error al enviar. Intenta de nuevo.");
-        }
+        if (error) console.error("Error al enviar:", error);
     };
 
     const calcularMora = (gimnastaActual: any) => {
@@ -171,15 +212,12 @@ export default function PortalPadres() {
         return { diaSemana, diaNum, mes };
     };
 
-    // --- CÁLCULO DE MENSAJES SIN LEER ---
     const mensajesSinLeer = mensajesChat.filter(m => m.remitente === 'admin' && !m.leido).length;
-
     const fondoApp = "url('/logob.png')";
 
     if (!gimnasta) {
         return (
             <div className="min-h-screen flex items-center justify-center p-4 bg-zinc-950 relative overflow-hidden font-sans">
-                {/* ... (Tus fondos y decoraciones se quedan igual) ... */}
                 <div className="absolute inset-0 opacity-[0.02]" style={{backgroundImage: fondoApp, backgroundSize: '400px', backgroundPosition: 'center'}}></div>
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-red-900/10 blur-[120px] rounded-full pointer-events-none"></div>
                 <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-900/10 blur-[120px] rounded-full pointer-events-none"></div>
@@ -194,15 +232,14 @@ export default function PortalPadres() {
                                 <p className="text-zinc-400 text-xs font-medium leading-relaxed">Accede a tu portal digital para seguir de cerca el progreso de tu campeona.</p>
                             </div>
 
-                            {/* TU FORMULARIO DE LOGIN ACTUAL */}
                             <form onSubmit={loginPadres} className="space-y-4">
                                 <div className="relative text-left">
                                     <User size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-500" />
-                                    <input type="text" value={nombreBusqueda} onChange={e => setNombreBusqueda(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-950 text-white text-sm uppercase font-bold focus:border-red-500 outline-none border border-white/10 transition-all" placeholder="Nombre de la Alumna" required />
+                                    <input type="text" value={nombreBusqueda} onChange={e => setNombreBusqueda(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-950 text-white text-sm uppercase font-bold focus:border-red-500 outline-none border border-white/10 transition-all shadow-inner" placeholder="Nombre de la Alumna" required />
                                 </div>
                                 <div className="relative text-left">
                                     <Lock size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-500" />
-                                    <input type="password" value={clave} onChange={e => setClave(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-950 text-white text-sm uppercase font-bold focus:border-red-500 outline-none border border-white/10 transition-all" placeholder="Clave de Acceso" required />
+                                    <input type="password" value={clave} onChange={e => setClave(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-950 text-white text-sm uppercase font-bold focus:border-red-500 outline-none border border-white/10 transition-all shadow-inner" placeholder="Clave de Acceso" required />
                                 </div>
 
                                 {errorLogin && (
@@ -216,7 +253,6 @@ export default function PortalPadres() {
                         </>
                     ) : (
                         <>
-                            {/* NUEVO FORMULARIO DE CAMBIO DE CLAVE */}
                             <div className="mb-8 animate-in slide-in-from-right-4">
                                 <h1 className="text-white text-2xl font-black mb-2 uppercase tracking-tighter">Seguridad</h1>
                                 <p className="text-cyan-400 text-xs font-bold leading-relaxed">Por seguridad, debes crear una contraseña propia y secreta para el perfil de {gimnastaTemporal?.nombre}.</p>
@@ -225,14 +261,26 @@ export default function PortalPadres() {
                             <form onSubmit={guardarNuevaClave} className="space-y-4 animate-in slide-in-from-right-4">
                                 <div className="relative text-left">
                                     <Lock size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-500" />
-                                    <input type="password" value={nuevaClave} onChange={e => setNuevaClave(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-950 text-white text-sm font-bold focus:border-cyan-500 outline-none border border-white/10 transition-all" placeholder="Nueva Contraseña" required />
+                                    <input type="password" value={nuevaClave} onChange={e => setNuevaClave(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-950 text-white text-sm font-bold focus:border-cyan-500 outline-none border border-white/10 transition-all shadow-inner" placeholder="Nueva Contraseña" required />
                                 </div>
                                 <div className="relative text-left">
                                     <CheckCircle2 size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-zinc-500" />
-                                    <input type="password" value={confirmarClave} onChange={e => setConfirmarClave(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-950 text-white text-sm font-bold focus:border-cyan-500 outline-none border border-white/10 transition-all" placeholder="Repite la Contraseña" required />
+                                    <input type="password" value={confirmarClave} onChange={e => setConfirmarClave(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-2xl bg-zinc-950 text-white text-sm font-bold focus:border-cyan-500 outline-none border border-white/10 transition-all shadow-inner" placeholder="Repite la Contraseña" required />
                                 </div>
 
-                                <button type="submit" disabled={cargando} className="w-full bg-gradient-to-r from-cyan-700 to-cyan-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-cyan-900/20 hover:scale-[1.02] active:scale-95 transition-all mt-4">
+                                {alertaSeguridad && (
+                                    <div className={`p-4 rounded-xl text-[10px] font-black uppercase tracking-widest animate-in slide-in-from-top-2 flex items-center gap-3 border ${
+                                        alertaSeguridad.tipo === 'error' 
+                                        ? 'bg-red-500/10 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]' 
+                                        : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                                    }`}>
+                                        {alertaSeguridad.tipo === 'error' ? <AlertCircle size={14}/> : <CheckCircle2 size={14}/>}
+                                        <span className="flex-1 text-left">{alertaSeguridad.msg}</span>
+                                        <button onClick={() => setAlertaSeguridad(null)}><X size={12}/></button>
+                                    </div>
+                                )}
+
+                                <button type="submit" disabled={cargando} className="w-full bg-gradient-to-r from-cyan-700 to-cyan-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-cyan-900/20 hover:scale-[1.02] active:scale-95 transition-all mt-4 border border-cyan-400/20">
                                     {cargando ? 'Guardando...' : 'Guardar y Entrar'}
                                 </button>
                             </form>
@@ -257,277 +305,329 @@ export default function PortalPadres() {
         <div className="min-h-screen bg-zinc-950 text-white font-sans relative pb-20 flex flex-col">
             <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{backgroundImage: fondoApp, backgroundSize: '300px', backgroundPosition: 'center'}}></div>
             
-            <div className="bg-zinc-900/90 backdrop-blur-xl border-b border-white/10 p-5 sticky top-0 z-50 shadow-2xl shrink-0">
-                <div className="max-w-md mx-auto flex justify-between items-center">
+            <div className="bg-zinc-900/90 backdrop-blur-xl border-b border-white/10 p-4 sticky top-0 z-50 shadow-2xl shrink-0">
+                <div className="max-w-6xl mx-auto flex justify-between items-center px-2 md:px-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-tr from-red-600 to-red-900 rounded-full flex items-center justify-center border border-red-500/30 shadow-lg overflow-hidden">
-                            <User size={20} className="text-white" />
-                        </div>
-                        <div>
-                            <h1 className="text-sm font-black uppercase tracking-tighter text-white truncate max-w-[200px] leading-tight">{gimnasta.nombre}</h1>
-                            <p className="text-[9px] text-red-400 font-black uppercase tracking-widest">{gimnasta.paquetes?.nombre}</p>
-                        </div>
+                        <img src="/logob.png" className="w-8 h-8 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Portal Familias</span>
                     </div>
-                    <button onClick={() => setGimnasta(null)} className="p-3 bg-white/5 rounded-full text-zinc-400 hover:text-white transition-colors">
-                        <LogOut size={16} />
+                    <button onClick={() => setGimnasta(null)} className="flex items-center gap-2 px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-full transition-colors text-[9px] font-black uppercase tracking-widest border border-red-500/20 active:scale-95">
+                        <LogOut size={14} /> Salir
                     </button>
                 </div>
             </div>
 
-            <div className="max-w-md mx-auto p-4 relative z-10 mt-4 flex-1 flex flex-col w-full">
+            <div className="max-w-6xl mx-auto p-4 md:p-8 relative z-10 mt-2 md:mt-8 flex-1 flex flex-col md:flex-row gap-8 w-full items-start">
                 
-                {vistaPadre === 'inicio' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex-1">
-                        <div className="bg-gradient-to-r from-red-900/40 to-red-600/10 border border-red-500/30 p-5 rounded-[2rem] shadow-xl flex items-start gap-4 mb-6">
-                            <div className="bg-red-500/20 p-2 rounded-xl shrink-0">
-                                <Bell size={20} className="text-red-400 animate-pulse" />
-                            </div>
-                            <div>
-                                <h3 className="text-white text-[11px] font-black uppercase tracking-widest mb-1">Aviso de Dirección</h3>
-                                <p className="text-zinc-300 text-[11px] leading-relaxed">Bienvenido al nuevo portal de familias Elite. Por este medio estaremos notificando eventos, resultados y circulares importantes.</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <button onClick={() => setVistaPadre('finanzas')} className="bg-zinc-900/80 backdrop-blur-md p-6 rounded-[2rem] border border-white/10 text-left hover:border-red-500/50 transition-all shadow-xl group relative overflow-hidden">
-                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] text-7xl group-hover:scale-110 transition-transform"><Wallet /></div>
-                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 border shadow-inner ${mora.meses > 0 ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-green-500/20 text-green-400 border-green-500/30'}`}>
-                                    <Wallet size={24} />
-                                </div>
-                                <h2 className="text-xs font-black uppercase text-white mb-1">Estado Cuenta</h2>
-                                <p className={`text-[9px] font-black uppercase tracking-widest ${mora.meses > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                                    {mora.meses > 0 ? 'Pago Pendiente' : 'Al Día'}
-                                </p>
-                            </button>
-
-                            <button onClick={() => setVistaPadre('asistencia')} className="bg-zinc-900/80 backdrop-blur-md p-6 rounded-[2rem] border border-white/10 text-left hover:border-cyan-500/50 transition-all shadow-xl group relative overflow-hidden">
-                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] text-7xl group-hover:scale-110 transition-transform"><CalendarDays /></div>
-                                <div className="w-12 h-12 bg-cyan-500/20 text-cyan-400 rounded-2xl flex items-center justify-center mb-4 border border-cyan-500/30 shadow-inner">
-                                    <CalendarDays size={24} />
-                                </div>
-                                <h2 className="text-xs font-black uppercase text-white mb-1">Asistencia</h2>
-                                <p className="text-[9px] font-black uppercase tracking-widest text-cyan-400">Ver Calendario</p>
-                            </button>
-
-                            <button onClick={() => setVistaPadre('torneos')} className="bg-zinc-900/80 backdrop-blur-md p-6 rounded-[2rem] border border-white/10 text-left hover:border-yellow-500/50 transition-all shadow-xl group relative overflow-hidden">
-                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] text-7xl group-hover:scale-110 transition-transform"><Medal /></div>
-                                <div className="w-12 h-12 bg-yellow-500/20 text-yellow-500 rounded-2xl flex items-center justify-center mb-4 border border-yellow-500/30 shadow-inner">
-                                    <Medal size={24} />
-                                </div>
-                                <h2 className="text-xs font-black uppercase text-white mb-1">Competencias</h2>
-                                <p className="text-[9px] font-black uppercase tracking-widest text-yellow-500">Resultados USAG</p>
-                            </button>
-
-                            {/* 👉 BOTÓN DE CHAT CON NOTIFICACIÓN 🔴 */}
-                            <button onClick={() => setVistaPadre('mensajes')} className="bg-zinc-900/80 backdrop-blur-md p-6 rounded-[2rem] border border-white/10 text-left hover:border-purple-500/50 transition-all shadow-xl group relative overflow-hidden">
-                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] text-7xl group-hover:scale-110 transition-transform"><MessageSquare /></div>
-                                <div className="w-12 h-12 bg-purple-500/20 text-purple-400 rounded-2xl flex items-center justify-center mb-4 border border-purple-500/30 shadow-inner relative">
-                                    <MessageSquare size={24} />
-                                    {mensajesSinLeer > 0 && (
-                                        <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-zinc-900 flex items-center justify-center animate-bounce shadow-lg">
-                                            {mensajesSinLeer}
-                                        </span>
-                                    )}
-                                </div>
-                                <h2 className="text-xs font-black uppercase text-white mb-1">Buzón / Chat</h2>
-                                <p className={`text-[9px] font-black uppercase tracking-widest ${mensajesSinLeer > 0 ? 'text-red-400' : 'text-purple-400'}`}>
-                                    {mensajesSinLeer > 0 ? '¡Mensaje Nuevo!' : 'Atención Directa'}
-                                </p>
-                            </button>
-                        </div>
-                    </div>
-                )}
-
-                {vistaPadre !== 'inicio' && (
-                    <button onClick={() => setVistaPadre('inicio')} className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase text-zinc-500 hover:text-white transition-colors bg-white/5 px-4 py-2 rounded-full inline-flex self-start shrink-0">
-                        <ChevronLeft size={14} /> Volver al Menú
-                    </button>
-                )}
-
-                {/* --- VISTAS EXISTENTES (Finanzas, Asistencia, Torneos) --- */}
-                {vistaPadre === 'finanzas' && (
-                    <div className={`p-8 rounded-[2rem] border relative overflow-hidden shadow-2xl animate-in slide-in-from-right-4 duration-300 ${mora.meses > 0 ? 'bg-red-900/20 border-red-500/30' : 'bg-green-900/20 border-green-500/30'}`}>
-                        <div className="flex items-center justify-between mb-6 relative z-10">
-                            <h2 className="text-xs font-black uppercase tracking-widest text-white">Resumen Financiero</h2>
-                            {mora.meses > 0 ? <AlertCircle className="text-red-400" size={24} /> : <CheckCircle2 className="text-green-400" size={24} />}
-                        </div>
-                        <div className="relative z-10">
-                            {mora.meses > 0 ? (
-                                <>
-                                    <p className="text-3xl font-black text-red-400 tracking-tighter mb-2">${mora.deudaTotal.toLocaleString()}</p>
-                                    <div className="bg-red-950/50 p-4 rounded-xl border border-red-500/20">
-                                        <div className="bg-red-950/50 p-5 rounded-xl border border-red-500/20 space-y-4">
-                                        <p className="text-[10px] uppercase font-bold text-red-200 leading-relaxed text-justify">
-                                            ¡Hola! Esperamos que estés muy bien. Hasta la fecha presentas <span className="text-white font-black">{mora.meses} mes(es)</span> pendiente en tu estado de cuenta. Tu apoyo es fundamental para que sigamos brindando la mejor formación y alegría a nuestras gimnastas en sus entrenamientos.
-                                        </p>
-
-                                        <div className="bg-red-1200/30 p-3 rounded-lg border border-red-600/10">
-                                            <p className="text-[10px] uppercase font-black text-white mb-2">Puedes realizar tu pago a través de:</p>
-                                            <p className="text-[11px] uppercase font-bold text-red-100 flex items-center gap-2 mb-1.5">
-                                                <span>📲</span> Nequi / Daviplata: <span className="text-white font-black tracking-widest">3022142158</span>
-                                            </p>
-                                            <p className="text-[11px] uppercase font-bold text-red-100 flex items-center gap-2">
-                                                <span>🏦</span> Efectivo (Directo en la clase)
-                                            </p>
-                                        </div>
-
-                                        <p className="text-[9px] uppercase font-black text-red-300 text-center tracking-widest mt-2">
-                                            ¡Muchas gracias por ser parte de nuestra familia deportiva!
-                                        </p>
-                                    </div>
-                                         
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <p className="text-3xl font-black text-green-400 tracking-tighter mb-2">AL DÍA</p>
-                                    <div className="bg-green-950/50 p-4 rounded-xl border border-green-500/20">
-                                        <p className="text-[10px] uppercase font-bold text-green-200">Gracias por tu puntualidad. Tu próximo corte de pago es el: <br/><span className="text-white font-black text-xs mt-1 block">{new Date(gimnasta.proximo_vencimiento).toLocaleDateString()}</span></p>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {vistaPadre === 'asistencia' && (
-                    <div className="animate-in slide-in-from-right-4 duration-300 space-y-6">
-                        <div className="bg-zinc-900/80 p-6 rounded-[2rem] border border-white/10 shadow-xl">
-                            <div className="flex justify-between items-end mb-4">
-                                <div>
-                                    <h2 className="text-[10px] font-black uppercase text-cyan-400 tracking-widest">Progreso del Mes</h2>
-                                    <p className="text-xs font-bold text-white uppercase">{nombresMeses[hoy.getMonth()]}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-2xl font-black text-white leading-none">{asistenciasMesActual.length}<span className="text-sm text-zinc-500">/{clasesEstimadasMes}</span></p>
-                                    <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Clases</p>
-                                </div>
-                            </div>
-                            <div className="w-full bg-black rounded-full h-3 mb-2 border border-white/5 overflow-hidden">
-                                <div className="bg-gradient-to-r from-cyan-600 to-cyan-400 h-3 rounded-full transition-all duration-1000 relative" style={{ width: `${porcentajeAsistencia}%` }}>
-                                    <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
-                                </div>
-                            </div>
-                            <p className="text-[9px] text-zinc-400 font-bold uppercase text-center mt-3 flex items-center justify-center gap-1"><TrendingUp size={12}/> {Math.round(porcentajeAsistencia)}% de cumplimiento estimado</p>
-                        </div>
-
-                        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-2">Historial de Ingreso</h2>
-                        <div className="space-y-3">
-                            {asistencias.length === 0 ? (
-                                <p className="text-[10px] text-zinc-500 font-bold uppercase text-center py-4 bg-zinc-900/40 rounded-2xl">Sin registros.</p>
-                            ) : (
-                                asistencias.map((a, i) => {
-                                    const fechaFormat = obtenerDiaFormateado(a.fecha);
-                                    return (
-                                        <div key={i} className="bg-zinc-900/80 p-4 rounded-2xl border border-white/5 flex items-center gap-4 shadow-sm">
-                                            <div className="w-12 h-12 bg-cyan-500/10 text-cyan-400 rounded-xl flex flex-col items-center justify-center border border-cyan-500/20 shrink-0">
-                                                <span className="text-lg font-black leading-none">{fechaFormat.diaNum}</span>
-                                                <span className="text-[8px] font-black uppercase tracking-widest">{fechaFormat.mes}</span>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-black text-white uppercase">{fechaFormat.diaSemana}</p>
-                                                <p className="text-[9px] text-zinc-400 font-bold uppercase flex items-center gap-1 mt-0.5"><CheckCircle2 size={10} className="text-green-500"/> Asistencia Confirmada</p>
-                                            </div>
-                                        </div>
-                                    )
-                                })
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {vistaPadre === 'torneos' && (
-                    <div className="animate-in slide-in-from-right-4 duration-300">
-                        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4 ml-2">Historial Deportivo (USAG)</h2>
-                        {resultados.length === 0 ? (
-                            <div className="bg-zinc-900/60 p-8 rounded-[2rem] border border-white/5 text-center">
-                                <Medal size={32} className="mx-auto text-zinc-700 mb-3" />
-                                <p className="text-[10px] font-bold uppercase text-zinc-500">Aún no hay torneos registrados.</p>
-                            </div>
+                <div className="w-full md:w-[40%] bg-zinc-900/60 backdrop-blur-2xl p-8 md:p-10 rounded-[3rem] border border-white/5 shadow-2xl flex flex-col items-center text-center shrink-0 animate-in slide-in-from-left-8 duration-500 md:sticky md:top-28 mb-4 md:mb-0">
+                    
+                    <div className="w-48 h-48 md:w-72 md:h-72 rounded-[3rem] overflow-hidden mb-8 bg-zinc-950 flex items-center justify-center relative group 
+                        border-4 border-red-600/50 
+                        shadow-[0_0_15px_rgba(239,68,68,0.3),_0_0_40px_rgba(185,28,28,0.2),_inset_0_0_15px_rgba(239,68,68,0.2)]
+                        transition-all duration-500 hover:shadow-[0_0_25px_rgba(239,68,68,0.5),_0_0_60px_rgba(185,28,28,0.3),_inset_0_0_20px_rgba(239,68,68,0.3)] hover:scale-[1.01]">
+                        
+                        <div className="absolute inset-0 bg-gradient-to-tr from-red-600/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none"></div>
+                        {gimnasta.foto_url ? (
+                            <img src={gimnasta.foto_url} alt={gimnasta.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                         ) : (
-                            <div className="space-y-4">
-                                {resultados.map(res => (
-                                    <div key={res.id} className="bg-zinc-900/80 p-6 rounded-[2rem] border border-white/10 shadow-xl relative overflow-hidden">
-                                        <div className="absolute -right-4 -bottom-4 opacity-[0.03] text-8xl text-yellow-500 pointer-events-none rotate-12"><Medal /></div>
-                                        <div className="mb-6">
-                                            <h3 className="text-sm font-black uppercase text-white tracking-tighter">{res.competencias?.nombre}</h3>
-                                            <p className="text-[9px] font-black text-yellow-500 uppercase tracking-widest">{res.nivel} • {new Date(res.competencias?.fecha).toLocaleDateString()}</p>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-4 gap-2 mb-4 relative z-10">
-                                            <div className="bg-black/50 p-2 rounded-xl text-center border border-white/5"><p className="text-[8px] text-blue-400 font-black mb-1">SA</p><p className="text-xs font-bold text-white">{res.puntaje_salto.toFixed(2)}</p></div>
-                                            <div className="bg-black/50 p-2 rounded-xl text-center border border-white/5"><p className="text-[8px] text-green-400 font-black mb-1">BA</p><p className="text-xs font-bold text-white">{res.puntaje_barras.toFixed(2)}</p></div>
-                                            <div className="bg-black/50 p-2 rounded-xl text-center border border-white/5"><p className="text-[8px] text-purple-400 font-black mb-1">VI</p><p className="text-xs font-bold text-white">{res.puntaje_viga.toFixed(2)}</p></div>
-                                            <div className="bg-black/50 p-2 rounded-xl text-center border border-white/5"><p className="text-[8px] text-rose-400 font-black mb-1">PI</p><p className="text-xs font-bold text-white">{res.puntaje_piso.toFixed(2)}</p></div>
-                                        </div>
-                                        <div className="bg-yellow-500/10 p-3 rounded-xl border border-yellow-500/20 flex justify-between items-center relative z-10">
-                                            <span className="text-[9px] text-yellow-500 font-black uppercase tracking-widest">All-Around Total</span>
-                                            <span className="text-lg font-black text-yellow-400">{res.all_around.toFixed(2)}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            <User size={80} className="text-zinc-700 md:scale-125" />
                         )}
                     </div>
-                )}
 
-                {/* --- VISTA CHAT / BUZÓN --- */}
-                {vistaPadre === 'mensajes' && (
-                    <div className="animate-in slide-in-from-right-4 duration-300 flex flex-col h-full bg-zinc-900/50 rounded-[2rem] border border-white/10 overflow-hidden relative">
-                        
-                        <div className="p-3 bg-zinc-900 border-b border-white/10 flex justify-between items-center">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 ml-2">Chat con Dirección</p>
-                            <button 
-                                onClick={() => cargarMensajesManual(gimnasta.id)} 
-                                disabled={actualizandoMensajes}
-                                className={`p-2 rounded-full hover:bg-white/5 text-zinc-400 hover:text-white transition-all ${actualizandoMensajes ? 'animate-spin text-cyan-500' : ''}`}
-                                title="Actualizar Mensajes"
-                            >
-                                <RefreshCw size={14} />
-                            </button>
+                    <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tighter text-white leading-tight mb-4">{gimnasta.nombre}</h1>
+                    <span className="text-[10px] md:text-xs text-red-400 font-black uppercase tracking-[0.25em] bg-red-500/10 px-6 py-3 rounded-2xl border border-red-500/20">{gimnasta.paquetes?.nombre}</span>
+                </div>
+
+                <div className="w-full md:w-[60%] flex flex-col min-h-[500px]">
+                    
+                    {vistaPadre === 'inicio' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex-1">
+                            <div className="bg-gradient-to-r from-red-900/40 to-red-600/10 border border-red-500/30 p-6 rounded-[2rem] shadow-xl flex items-start gap-5 mb-8">
+                                <div className="bg-red-500/20 p-3 rounded-2xl shrink-0">
+                                    <Bell size={24} className="text-red-400 animate-pulse" />
+                                </div>
+                                <div>
+                                    <h3 className="text-white text-xs font-black uppercase tracking-widest mb-1.5">Aviso de Dirección</h3>
+                                    <p className="text-zinc-300 text-[11px] leading-relaxed">Bienvenido al nuevo portal de familias Elite. Por este medio estaremos notificando eventos, resultados y circulares importantes.</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 md:gap-6">
+                                <button onClick={() => setVistaPadre('finanzas')} className="bg-zinc-900/80 backdrop-blur-md p-6 md:p-8 rounded-[2.5rem] border border-white/10 text-left hover:border-red-500/50 transition-all shadow-xl group relative overflow-hidden">
+                                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] text-8xl group-hover:scale-110 transition-transform"><Wallet /></div>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-5 border shadow-inner ${mora.meses > 0 ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-green-500/20 text-green-400 border-green-500/30'}`}>
+                                        <Wallet size={28} />
+                                    </div>
+                                    <h2 className="text-sm font-black uppercase text-white mb-1">Estado Cuenta</h2>
+                                    <p className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest ${mora.meses > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                        {mora.meses > 0 ? 'Pago Pendiente' : 'Al Día'}
+                                    </p>
+                                </button>
+
+                                <button onClick={() => setVistaPadre('asistencia')} className="bg-zinc-900/80 backdrop-blur-md p-6 md:p-8 rounded-[2.5rem] border border-white/10 text-left hover:border-cyan-500/50 transition-all shadow-xl group relative overflow-hidden">
+                                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] text-8xl group-hover:scale-110 transition-transform"><CalendarDays /></div>
+                                    <div className="w-14 h-14 bg-cyan-500/20 text-cyan-400 rounded-2xl flex items-center justify-center mb-5 border border-cyan-500/30 shadow-inner">
+                                        <CalendarDays size={28} />
+                                    </div>
+                                    <h2 className="text-sm font-black uppercase text-white mb-1">Asistencia</h2>
+                                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-cyan-400">Ver Calendario</p>
+                                </button>
+
+                                <button onClick={() => setVistaPadre('torneos')} className="bg-zinc-900/80 backdrop-blur-md p-6 md:p-8 rounded-[2.5rem] border border-white/10 text-left hover:border-yellow-500/50 transition-all shadow-xl group relative overflow-hidden">
+                                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] text-8xl group-hover:scale-110 transition-transform"><Medal /></div>
+                                    <div className="w-14 h-14 bg-yellow-500/20 text-yellow-500 rounded-2xl flex items-center justify-center mb-5 border border-yellow-500/30 shadow-inner">
+                                        <Medal size={28} />
+                                    </div>
+                                    <h2 className="text-sm font-black uppercase text-white mb-1">Competencias</h2>
+                                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-yellow-500">Resultados USAG</p>
+                                </button>
+
+                                <button onClick={() => setVistaPadre('mensajes')} className="bg-zinc-900/80 backdrop-blur-md p-6 md:p-8 rounded-[2.5rem] border border-white/10 text-left hover:border-purple-500/50 transition-all shadow-xl group relative overflow-hidden">
+                                    <div className="absolute -right-4 -bottom-4 opacity-[0.03] text-8xl group-hover:scale-110 transition-transform"><MessageSquare /></div>
+                                    <div className="w-14 h-14 bg-purple-500/20 text-purple-400 rounded-2xl flex items-center justify-center mb-5 border border-purple-500/30 shadow-inner relative">
+                                        <MessageSquare size={28} />
+                                        {mensajesSinLeer > 0 && (
+                                            <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white text-[10px] font-black rounded-full border-2 border-zinc-900 flex items-center justify-center animate-bounce shadow-lg">
+                                                {mensajesSinLeer}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h2 className="text-sm font-black uppercase text-white mb-1">Buzón / Chat</h2>
+                                    <p className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest ${mensajesSinLeer > 0 ? 'text-red-400' : 'text-purple-400'}`}>
+                                        {mensajesSinLeer > 0 ? '¡Mensaje Nuevo!' : 'Atención Directa'}
+                                    </p>
+                                </button>
+                            </div>
                         </div>
-                        
-                        <div className="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-4 min-h-[300px] max-h-[500px]">
-                            {mensajesChat.length === 0 ? (
-                                <div className="text-center py-10 opacity-50">
-                                    <MessageSquare size={32} className="mx-auto text-zinc-600 mb-3" />
-                                    <p className="text-[10px] font-bold uppercase text-zinc-400">Envíanos un mensaje si tienes <br/>alguna duda o novedad.</p>
+                    )}
+
+                    {vistaPadre !== 'inicio' && (
+                        <button onClick={() => setVistaPadre('inicio')} className="mb-6 flex items-center gap-2 text-[10px] font-black uppercase text-zinc-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 border border-white/5 px-5 py-3 rounded-full inline-flex self-start shrink-0 active:scale-95">
+                            <ChevronLeft size={14} /> Volver al Menú Principal
+                        </button>
+                    )}
+
+                    {/* --- VISTA DE FINANZAS CON SUBIDA DE COMPROBANTE --- */}
+                    {vistaPadre === 'finanzas' && (
+                        <div className="animate-in slide-in-from-right-8 duration-500 space-y-6">
+                            <div className={`p-8 md:p-10 rounded-[3rem] border relative overflow-hidden shadow-2xl ${mora.meses > 0 ? 'bg-red-900/20 border-red-500/30' : 'bg-green-900/20 border-green-500/30'}`}>
+                                <div className="flex items-center justify-between mb-8 relative z-10">
+                                    <h2 className="text-sm font-black uppercase tracking-widest text-white">Resumen Financiero</h2>
+                                    {mora.meses > 0 ? <AlertCircle className="text-red-400" size={28} /> : <CheckCircle2 className="text-green-400" size={28} />}
+                                </div>
+                                <div className="relative z-10">
+                                    {mora.meses > 0 ? (
+                                        <>
+                                            <p className="text-4xl md:text-5xl font-black text-red-400 tracking-tighter mb-4">${mora.deudaTotal.toLocaleString()}</p>
+                                            <div className="bg-red-950/50 p-6 rounded-[2rem] border border-red-500/20 space-y-5">
+                                                <p className="text-[11px] uppercase font-bold text-red-200 leading-relaxed text-justify">
+                                                    ¡Hola! Esperamos que estés muy bien. Hasta la fecha presentas <span className="text-white font-black">{mora.meses} mes(es)</span> pendiente en tu estado de cuenta.
+                                                </p>
+
+                                                <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20">
+                                                    <p className="text-[10px] uppercase font-black text-white mb-3 tracking-widest text-center">Datos de Pago</p>
+                                                    <p className="text-xs uppercase font-bold text-red-100 flex items-center gap-3 mb-2">
+                                                        <span className="text-lg">📲</span> Nequi / Daviplata: <span className="text-white font-black tracking-widest">3022142158</span>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-4xl md:text-5xl font-black text-green-400 tracking-tighter mb-4">AL DÍA</p>
+                                            <div className="bg-green-950/50 p-6 rounded-[2rem] border border-green-500/20">
+                                                <p className="text-xs uppercase font-bold text-green-200 leading-relaxed">Tu próximo corte de pago es el: <br/><span className="text-white text-lg font-black mt-2 block">{new Date(gimnasta.proximo_vencimiento).toLocaleDateString()}</span></p>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* --- MÓDULO DE SUBIDA DE COMPROBANTE --- */}
+                            <div className="p-8 md:p-10 bg-zinc-900/60 backdrop-blur-md rounded-[3rem] border border-white/10 shadow-xl">
+                                <h3 className="text-xs font-black uppercase text-cyan-400 mb-6 tracking-widest flex items-center gap-2">
+                                    <Upload size={16}/> Reportar Transferencia
+                                </h3>
+
+                                <div className="space-y-6">
+                                    <div className="relative">
+                                        <label className={`flex flex-col items-center justify-center border-2 border-dashed rounded-[2rem] p-8 transition-all cursor-pointer group ${archivoPago ? 'border-cyan-500 bg-cyan-500/5 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'border-zinc-800 hover:border-cyan-500/50 bg-black/20'}`}>
+                                            <Upload size={32} className={`mb-3 transition-colors ${archivoPago ? 'text-cyan-400' : 'text-zinc-600 group-hover:text-cyan-500'}`}/>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 group-hover:text-zinc-300">
+                                                {archivoPago ? archivoPago.name : "Toca para elegir la foto del recibo"}
+                                            </span>
+                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => setArchivoPago(e.target.files?.[0] || null)} />
+                                        </label>
+                                    </div>
+
+                                    {alertaSeguridad && (
+                                        <div className={`p-4 rounded-xl text-[10px] font-black uppercase tracking-widest animate-in slide-in-from-top-2 flex items-center gap-3 border ${
+                                            alertaSeguridad.tipo === 'error' 
+                                            ? 'bg-red-500/10 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)]' 
+                                            : 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
+                                        }`}>
+                                            {alertaSeguridad.tipo === 'error' ? <AlertCircle size={14}/> : <CheckCircle2 size={14}/>}
+                                            <span className="flex-1">{alertaSeguridad.msg}</span>
+                                        </div>
+                                    )}
+
+                                    <button 
+                                        onClick={subirComprobante} 
+                                        disabled={!archivoPago || subiendoPago}
+                                        className={`w-full py-5 rounded-[1.5rem] font-black uppercase text-[10px] tracking-[0.3em] transition-all flex items-center justify-center gap-2 ${!archivoPago || subiendoPago ? 'bg-zinc-800 text-zinc-600 opacity-50' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-[0_0_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-95'}`}
+                                    >
+                                        {subiendoPago ? (
+                                            <><RefreshCw size={16} className="animate-spin"/> Enviando...</>
+                                        ) : (
+                                            <><CheckCircle2 size={16}/> Enviar a Dirección</>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- RESTO DE LAS VISTAS IGUAL --- */}
+                    {vistaPadre === 'asistencia' && (
+                        <div className="animate-in slide-in-from-right-8 duration-500 space-y-8">
+                            {/* ... Contenido de asistencia igual al anterior ... */}
+                            <div className="bg-zinc-900/80 p-8 rounded-[3rem] border border-white/10 shadow-xl">
+                                <div className="flex justify-between items-end mb-6">
+                                    <div>
+                                        <h2 className="text-[11px] font-black uppercase text-cyan-400 tracking-widest mb-1">Progreso del Mes</h2>
+                                        <p className="text-sm font-bold text-white uppercase">{nombresMeses[hoy.getMonth()]}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-3xl md:text-4xl font-black text-white leading-none">{asistenciasMesActual.length}<span className="text-lg text-zinc-500">/{clasesEstimadasMes}</span></p>
+                                        <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest mt-1">Clases</p>
+                                    </div>
+                                </div>
+                                <div className="w-full bg-black rounded-full h-4 mb-3 border border-white/5 overflow-hidden">
+                                    <div className="bg-gradient-to-r from-cyan-600 to-cyan-400 h-4 rounded-full transition-all duration-1000 relative" style={{ width: `${porcentajeAsistencia}%` }}>
+                                        <div className="absolute inset-0 bg-white/20 w-full animate-pulse"></div>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-zinc-400 font-bold uppercase text-center mt-4 flex items-center justify-center gap-2"><TrendingUp size={14}/> {Math.round(porcentajeAsistencia)}% de cumplimiento estimado</p>
+                            </div>
+
+                            <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500 ml-4">Historial de Ingreso</h2>
+                            <div className="space-y-4">
+                                {asistencias.length === 0 ? (
+                                    <div className="bg-zinc-900/60 p-10 rounded-[3rem] border border-white/5 text-center">
+                                        <CalendarDays size={32} className="mx-auto text-zinc-700 mb-3" />
+                                        <p className="text-[10px] font-bold uppercase text-zinc-500 tracking-widest">Sin registros este mes.</p>
+                                    </div>
+                                ) : (
+                                    asistencias.map((a, i) => {
+                                        const fechaFormat = obtenerDiaFormateado(a.fecha);
+                                        return (
+                                            <div key={i} className="bg-zinc-900/80 p-5 rounded-[2rem] border border-white/5 flex items-center gap-5 shadow-sm hover:bg-zinc-800/80 transition-colors">
+                                                <div className="w-14 h-14 bg-cyan-500/10 text-cyan-400 rounded-2xl flex flex-col items-center justify-center border border-cyan-500/20 shrink-0">
+                                                    <span className="text-xl font-black leading-none mb-0.5">{fechaFormat.diaNum}</span>
+                                                    <span className="text-[8px] font-black uppercase tracking-widest">{fechaFormat.mes}</span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-white uppercase mb-1">{fechaFormat.diaSemana}</p>
+                                                    <p className="text-[10px] text-zinc-400 font-bold uppercase flex items-center gap-1.5"><CheckCircle2 size={12} className="text-green-500"/> Asistencia Confirmada</p>
+                                                </div>
+                                            </div>
+                                        )
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {vistaPadre === 'torneos' && (
+                        <div className="animate-in slide-in-from-right-8 duration-500">
+                             <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-6 ml-4">Historial Deportivo (USAG)</h2>
+                            {resultados.length === 0 ? (
+                                <div className="bg-zinc-900/60 p-10 rounded-[3rem] border border-white/5 text-center">
+                                    <Medal size={40} className="mx-auto text-zinc-700 mb-4" />
+                                    <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-500">Aún no hay torneos registrados.</p>
                                 </div>
                             ) : (
-                                mensajesChat.map((msg, index) => {
-                                    const esMio = msg.remitente === 'padre';
-                                    return (
-                                        <div key={msg.id || index} className={`flex flex-col ${esMio ? 'items-end' : 'items-start'}`}>
-                                            <div className={`max-w-[85%] p-4 rounded-2xl ${esMio ? 'bg-gradient-to-tr from-red-700 to-red-600 text-white rounded-tr-sm shadow-lg shadow-red-900/20' : 'bg-zinc-800 border border-white/10 text-zinc-200 rounded-tl-sm shadow-md'}`}>
-                                                <p className="text-sm">{msg.mensaje}</p>
+                                <div className="space-y-6">
+                                    {resultados.map(res => (
+                                        <div key={res.id} className="bg-zinc-900/80 p-8 rounded-[3rem] border border-white/10 shadow-xl relative overflow-hidden group">
+                                            <div className="absolute -right-4 -bottom-4 opacity-[0.02] text-9xl text-yellow-500 pointer-events-none rotate-12 group-hover:scale-110 transition-transform duration-500"><Medal /></div>
+                                            <div className="mb-8">
+                                                <h3 className="text-lg font-black uppercase text-white tracking-tighter mb-1">{res.competencias?.nombre}</h3>
+                                                <p className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.2em]">{res.nivel} • {new Date(res.competencias?.fecha).toLocaleDateString()}</p>
                                             </div>
-                                            <span className="text-[8px] font-bold text-zinc-600 uppercase mt-1 px-1">
-                                                {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                            </span>
+                                            
+                                            <div className="grid grid-cols-4 gap-3 mb-6 relative z-10">
+                                                <div className="bg-black/50 p-3 rounded-2xl text-center border border-white/5"><p className="text-[9px] text-blue-400 font-black mb-1.5 tracking-widest">SA</p><p className="text-sm font-black text-white">{res.puntaje_salto.toFixed(2)}</p></div>
+                                                <div className="bg-black/50 p-3 rounded-2xl text-center border border-white/5"><p className="text-[9px] text-green-400 font-black mb-1.5 tracking-widest">BA</p><p className="text-sm font-black text-white">{res.puntaje_barras.toFixed(2)}</p></div>
+                                                <div className="bg-black/50 p-3 rounded-2xl text-center border border-white/5"><p className="text-[9px] text-purple-400 font-black mb-1.5 tracking-widest">VI</p><p className="text-sm font-black text-white">{res.puntaje_viga.toFixed(2)}</p></div>
+                                                <div className="bg-black/50 p-3 rounded-2xl text-center border border-white/5"><p className="text-[9px] text-rose-400 font-black mb-1.5 tracking-widest">PI</p><p className="text-sm font-black text-white">{res.puntaje_piso.toFixed(2)}</p></div>
+                                            </div>
+                                            <div className="bg-yellow-500/10 p-5 rounded-2xl border border-yellow-500/20 flex justify-between items-center relative z-10">
+                                                <span className="text-[10px] text-yellow-500 font-black uppercase tracking-[0.2em]">All-Around Total</span>
+                                                <span className="text-2xl font-black text-yellow-400">{res.all_around.toFixed(2)}</span>
+                                            </div>
                                         </div>
-                                    );
-                                })
+                                    ))}
+                                </div>
                             )}
-                            <div ref={mensajesEndRef} />
                         </div>
+                    )}
 
-                        <div className="p-3 bg-zinc-900 border-t border-white/10 mt-auto shrink-0">
-                            <form onSubmit={enviarMensaje} className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    value={nuevoMensaje}
-                                    onChange={(e) => setNuevoMensaje(e.target.value)}
-                                    placeholder="Escribe tu mensaje aquí..." 
-                                    className="flex-1 bg-zinc-950 border border-white/10 rounded-xl px-4 text-sm text-white focus:border-red-500 outline-none transition-colors"
-                                />
-                                <button type="submit" disabled={!nuevoMensaje.trim()} className="p-3.5 bg-red-600 rounded-xl text-white hover:bg-red-500 disabled:opacity-50 disabled:bg-zinc-800 transition-all flex items-center justify-center shadow-lg active:scale-95">
-                                    <Send size={18} />
+                    {vistaPadre === 'mensajes' && (
+                        <div className="animate-in slide-in-from-right-8 duration-500 flex flex-col h-full bg-zinc-900/60 rounded-[3rem] border border-white/10 overflow-hidden relative shadow-2xl">
+                            <div className="p-5 bg-zinc-950/80 backdrop-blur-md border-b border-white/10 flex justify-between items-center">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 ml-2 flex items-center gap-2"><MessageSquare size={14} className="text-purple-500"/> Chat con Dirección</p>
+                                <button 
+                                    onClick={() => cargarMensajesManual(gimnasta.id)} 
+                                    disabled={actualizandoMensajes}
+                                    className={`p-2.5 rounded-full hover:bg-white/5 text-zinc-400 hover:text-white transition-all border border-transparent hover:border-white/10 active:scale-95 ${actualizandoMensajes ? 'animate-spin text-cyan-500' : ''}`}
+                                    title="Actualizar Mensajes"
+                                >
+                                    <RefreshCw size={16} />
                                 </button>
-                            </form>
-                        </div>
-                    </div>
-                )}
+                            </div>
+                            
+                            <div className="flex-1 p-6 overflow-y-auto custom-scrollbar space-y-6 min-h-[400px] max-h-[600px]">
+                                {mensajesChat.length === 0 ? (
+                                    <div className="text-center py-20 opacity-40">
+                                        <MessageSquare size={40} className="mx-auto text-zinc-600 mb-4" />
+                                        <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 leading-relaxed">Envíanos un mensaje si tienes <br/>alguna duda o novedad.</p>
+                                    </div>
+                                ) : (
+                                    mensajesChat.map((msg, index) => {
+                                        const esMio = msg.remitente === 'padre';
+                                        return (
+                                            <div key={msg.id || index} className={`flex flex-col ${esMio ? 'items-end' : 'items-start'}`}>
+                                                <div className={`max-w-[85%] p-5 rounded-3xl ${esMio ? 'bg-gradient-to-tr from-red-700 to-red-600 text-white rounded-tr-sm shadow-xl shadow-red-900/20' : 'bg-zinc-800 border border-white/10 text-zinc-200 rounded-tl-sm shadow-lg'}`}>
+                                                    <p className="text-sm md:text-base leading-relaxed">{msg.mensaje}</p>
+                                                </div>
+                                                <span className="text-[9px] font-black text-zinc-600 uppercase mt-2 px-2 tracking-widest">
+                                                    {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                </span>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                                <div ref={mensajesEndRef} />
+                            </div>
 
+                            <div className="p-4 bg-zinc-950/80 backdrop-blur-md border-t border-white/10 mt-auto shrink-0">
+                                <form onSubmit={enviarMensaje} className="flex gap-3">
+                                    <input 
+                                        type="text" 
+                                        value={nuevoMensaje}
+                                        onChange={(e) => setNuevoMensaje(e.target.value)}
+                                        placeholder="Escribe tu mensaje aquí..." 
+                                        className="flex-1 bg-black/50 border border-white/10 rounded-2xl px-5 text-sm text-white focus:border-red-500 outline-none transition-all shadow-inner"
+                                    />
+                                    <button type="submit" disabled={!nuevoMensaje.trim()} className="p-4 bg-red-600 rounded-2xl text-white hover:bg-red-500 disabled:opacity-50 disabled:bg-zinc-800 transition-all flex items-center justify-center shadow-lg active:scale-95">
+                                        <Send size={20} />
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

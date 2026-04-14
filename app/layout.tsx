@@ -24,9 +24,27 @@ export const metadata: Metadata = {
   description: "Portal digital para familias y dirección deportiva.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/icon-color.png",    // Icono a color para navegadores
-    apple: "/icon-color.png",   // Icono a color para iPhone/iPad
+    icon: "/icon-color.png",
+    apple: "/icon-color.png",
   },
+  // 🟢 Esto es lo que configura la vista previa en WhatsApp
+  openGraph: {
+    title: "Elite Gymnastics - Portal Oficial",
+    description: "Gestión de asistencia y estados de cuenta para nuestras gimnastas.",
+    url: "https://tu-enlace.vercel.app", // <- Cambia esto por tu link real de Vercel
+    siteName: "Elite Gymnastics",
+    images: [
+      {
+        url: "/icon-color.png", // Usamos el logo a color
+        width: 800,
+        height: 600,
+        alt: "Logo Elite Gymnastics",
+      },
+    ],
+    locale: "es_CO",
+    type: "website",
+  },
+  // Esto es para que en iPhone se vea como app nativa
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
