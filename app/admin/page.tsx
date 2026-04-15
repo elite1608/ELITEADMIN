@@ -1,120 +1,115 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { createClient } from '@supabase/supabase-js';
 import { 
-  ShieldAlert, Lock, UserCheck, ChevronRight, Activity, 
+  ShieldAlert, UserCheck, ChevronRight, Activity, 
   Users, LayoutDashboard, UserPlus, Wallet, CreditCard, 
   Briefcase, CalendarCheck, LogOut, Menu, X, ArrowRight, Trophy,
   ChevronLeft, DollarSign, TrendingUp, CheckCircle2, User, Phone, 
   Edit, Trash2, Check, HelpCircle, Shirt, Star, Package, Send,
   MinusCircle, PlusCircle, FileText, BadgeDollarSign, Key,
-  AlertCircle, Camera,
+  AlertCircle, Camera, Lock, Cake, CalendarDays, Gift
 } from "lucide-react";
 
 import CompetenciasModulo from "./Competencias";
 import Dashboard from "./components/Dashboard"; 
 import MensajesModulo from "./Mensajes";
 import { enviarReciboPago, enviarRecordatorioPago } from '../utils/whatsapp';
+import RevisionPagos from './RevisionPagos';
+import InscripcionesModulo from "./components/Inscripciones"; 
 
 // --- CONEXIÓN DIRECTA ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- UTILIDADES ---
+// --- CONSTANTES Y UTILIDADES ---
 const diasSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]; 
 const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const obtenerFechaColombia = () => {
-    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 };
 
 const obtenerNombreDia = (fechaStr: string) => {
-    const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-    const d = new Date(fechaStr + "T12:00:00");
-    return dias[d.getDay()];
+  const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const d = new Date(fechaStr + "T12:00:00");
+  return dias[d.getDay()];
 };
 
 // --- COMPONENTES UI PREMIUM ---
 const BotonMenu = ({ icono, texto, activo, onClick }: any) => (
-  <button onClick={onClick} className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 ${activo ? 'bg-gradient-to-r from-cyan-600 to-cyan-800 text-white shadow-lg shadow-cyan-900/30 border border-cyan-500/30 translate-x-2' : 'text-zinc-500 hover:bg-white/5 hover:text-white border border-transparent'}`}>
-      <span className={`${activo ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-zinc-500'}`}>{icono}</span> 
-      <span className="text-[10px] font-black uppercase tracking-[0.2em]">{texto}</span>
+  <button 
+    onClick={onClick} 
+    className={`w-full text-left p-4 rounded-2xl flex items-center gap-4 transition-all duration-300 transform hover:scale-[1.02] active:scale-95 ${activo ? 'bg-gradient-to-r from-cyan-600 to-cyan-800 text-white shadow-lg shadow-cyan-900/30 border border-cyan-500/30 translate-x-2' : 'text-zinc-500 hover:bg-white/5 hover:text-white border border-transparent'}`}
+  >
+    <span className={`${activo ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-zinc-500'}`}>{icono}</span> 
+    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{texto}</span>
   </button>
 );
 
 const CardDato = ({ titulo, valor, color, icono, onClick }: any) => (
-  <div onClick={onClick} className={`bg-zinc-900/40 backdrop-blur-2xl p-6 rounded-[2rem] border border-white/5 relative overflow-hidden shadow-2xl text-left group transition-all duration-500 hover:-translate-y-2 hover:shadow-cyan-900/20 hover:border-cyan-500/30 hover:bg-zinc-800/60 ${onClick ? 'cursor-pointer active:scale-95' : ''}`}>
-      <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-125 group-hover:opacity-10 transition-all duration-500 rotate-12 text-zinc-100 [&>svg]:w-32 [&>svg]:h-32">{icono}</div>
-      <h3 className="text-zinc-500 text-[9px] font-black uppercase tracking-[0.25em] mb-2 group-hover:text-cyan-400 transition-colors">{titulo}</h3>
-      <p className={`text-3xl font-black tracking-tighter ${color} drop-shadow-md group-hover:scale-105 transition-transform origin-left`}>{valor}</p>
-      {onClick && <p className="text-[8px] text-zinc-500 mt-3 uppercase font-black tracking-widest flex items-center gap-1 group-hover:text-cyan-400 transition-colors">Ver análisis <ArrowRight size={10} className="group-hover:translate-x-2 transition-transform" /></p>}
+  <div 
+    onClick={onClick} 
+    className={`bg-zinc-900/40 backdrop-blur-2xl p-6 rounded-[2rem] border border-white/5 relative overflow-hidden shadow-2xl text-left group transition-all duration-500 hover:-translate-y-2 hover:shadow-cyan-900/20 hover:border-cyan-500/30 hover:bg-zinc-800/60 ${onClick ? 'cursor-pointer active:scale-95' : ''}`}
+  >
+    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-125 group-hover:opacity-10 transition-all duration-500 rotate-12 text-zinc-100 [&>svg]:w-32 [&>svg]:h-32">
+      {icono}
+    </div>
+    <h3 className="text-zinc-500 text-[9px] font-black uppercase tracking-[0.25em] mb-2 group-hover:text-cyan-400 transition-colors">{titulo}</h3>
+    <p className={`text-3xl font-black tracking-tighter ${color} drop-shadow-md group-hover:scale-105 transition-transform origin-left`}>{valor}</p>
+    {onClick && (
+      <p className="text-[8px] text-zinc-500 mt-3 uppercase font-black tracking-widest flex items-center gap-1 group-hover:text-cyan-400 transition-colors">
+        Ver análisis <ArrowRight size={10} className="group-hover:translate-x-2 transition-transform" />
+      </p>
+    )}
   </div>
 );
 
 const CardCajaMenor = ({ titulo, valor, icono, colorTexto }: any) => (
-    <div className="bg-zinc-900/60 backdrop-blur-md p-5 rounded-3xl border border-white/5 flex items-center justify-between transition-all duration-300 hover:scale-[1.02] hover:bg-white/5 hover:border-white/10 hover:shadow-xl cursor-default group">
-        <div>
-            <p className="text-[9px] text-zinc-500 uppercase font-black tracking-[0.2em] mb-1">{titulo}</p>
-            <p className={`text-xl font-black ${colorTexto}`}>{valor}</p>
-        </div>
-        <div className={`text-2xl opacity-30 group-hover:opacity-100 transition-opacity duration-300 ${colorTexto}`}>{icono}</div>
+  <div className="bg-zinc-900/60 backdrop-blur-md p-5 rounded-3xl border border-white/5 flex items-center justify-between transition-all duration-300 hover:scale-[1.02] hover:bg-white/5 hover:border-white/10 hover:shadow-xl cursor-default group">
+    <div>
+      <p className="text-[9px] text-zinc-500 uppercase font-black tracking-[0.2em] mb-1">{titulo}</p>
+      <p className={`text-xl font-black ${colorTexto}`}>{valor}</p>
     </div>
+    <div className={`text-2xl opacity-30 group-hover:opacity-100 transition-opacity duration-300 ${colorTexto}`}>{icono}</div>
+  </div>
 );
 
 const InputStyled = (props: any) => (
   <div className="text-left w-full">
     {props.label && <label className="text-[9px] font-black text-zinc-500 uppercase tracking-widest mb-1.5 block ml-1">{props.label}</label>}
-    <input {...props} className="w-full bg-zinc-950/50 p-4 rounded-2xl border border-white/10 outline-none text-white focus:border-cyan-500 transition-all focus:scale-[1.01] focus:bg-zinc-900/80 placeholder-zinc-700 text-xs font-bold uppercase shadow-inner" />
+    <input 
+      {...props} 
+      className="w-full bg-zinc-950/50 p-4 rounded-2xl border border-white/10 outline-none text-white focus:border-cyan-500 transition-all focus:scale-[1.01] focus:bg-zinc-900/80 placeholder-zinc-700 text-xs font-bold uppercase shadow-inner" 
+    />
   </div>
 );
 
 export default function EliteManager() {
-  // --- ESTADOS ---
+  // --- ESTADOS: Autenticación y UI ---
   const [usuarioActual, setUsuarioActual] = useState<'admin' | null>(null);
   const [passwordInput, setPasswordInput] = useState("");
   const [errorLogin, setErrorLogin] = useState(false);
   const [vistaActual, setVistaActual] = useState("inicio");
-  
-  // ESTADOS DE ALERTAS MODERNAS
-  const [modalAlerta, setModalAlerta] = useState<{ titulo: string, mensaje: string, tipo: 'exito'|'error' } | null>(null);
-  const [modalInteractivo, setModalInteractivo] = useState<{
-      abierto: boolean;
-      tipo: 'confirmacion' | 'peligro' | 'prompt';
-      titulo: string;
-      mensaje: string;
-      placeholder?: string;
-      accionConfirmar: (inputTexto?: string) => void;
-  } | null>(null);
-  const [inputPromptValue, setInputPromptValue] = useState("");
-  const [modalCobroMultiple, setModalCobroMultiple] = useState<{ abierto: boolean, gimnasta: any, mora: any, mesesSeleccionados: number, montoMora: number, montoAbono: string } | null>(null);
-  // Estados de Perfil y Filtros
-  const [perfilSeleccionado, setPerfilSeleccionado] = useState<any | null>(null);
-  const [tabPerfil, setTabPerfil] = useState<'finanzas' | 'asistencia'>('finanzas');
-  const [modoEdicionPerfil, setModoEdicionPerfil] = useState(false);
-  const [filtroDeudores, setFiltroDeudores] = useState(false);
-  const [busqueda, setBusqueda] = useState("");
-  const [mesSeleccionadoFiltro, setMesSeleccionadoFiltro] = useState(nombresMeses[new Date().getMonth()]);
-  const [mesReporteDashboard, setMesReporteDashboard] = useState(nombresMeses[new Date().getMonth()]);
-  
-  // Estados de Edición
-  const [editNombre, setEditNombre] = useState("");
-  const [editTelefono, setEditTelefono] = useState("");
-  const [editPaquete, setEditPaquete] = useState("");
-  const [editProfesor, setEditProfesor] = useState("");
-  const [editEsHermana, setEditEsHermana] = useState(false);
-  // VARIABLES PARA HERMANAS
-  const [formGrupoFamiliar, setFormGrupoFamiliar] = useState("");
-  const [editGrupoFamiliar, setEditGrupoFamiliar] = useState("");
-  const [editVencimiento, setEditVencimiento] = useState("");
-  const [editDias, setEditDias] = useState<string[]>([]);
-  const [editClave, setEditClave] = useState("");
-  const [editFoto, setEditFoto] = useState<File | null>(null);
-  const [editFotoPreview, setEditFotoPreview] = useState<string | null>(null); 
-  
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const [tabCaja, setTabCaja] = useState<'ingreso' | 'egreso'>('egreso');
   
+  // --- ESTADOS: Modales y Alertas ---
+  const [modalAlerta, setModalAlerta] = useState<{ titulo: string, mensaje: string, tipo: 'exito'|'error' } | null>(null);
+  const [modalInteractivo, setModalInteractivo] = useState<{
+    abierto: boolean;
+    tipo: 'confirmacion' | 'peligro' | 'prompt';
+    titulo: string;
+    mensaje: string;
+    placeholder?: string;
+    accionConfirmar: (inputTexto?: string) => void;
+  } | null>(null);
+  const [inputPromptValue, setInputPromptValue] = useState("");
+  const [modalCobroMultiple, setModalCobroMultiple] = useState<{ abierto: boolean, gimnasta: any, mora: any, mesesSeleccionados: number, montoMora: number, montoAbono: string } | null>(null);
+  
+  // --- ESTADOS: Datos Base ---
   const [estudiantes, setEstudiantes] = useState<any[]>([]);
   const [paquetes, setPaquetes] = useState<any[]>([]);
   const [listaProfesores, setListaProfesores] = useState<any[]>([]);
@@ -123,28 +118,52 @@ export default function EliteManager() {
   const [gastosVarios, setGastosVarios] = useState<any[]>([]);
   const [ingresosExtra, setIngresosExtra] = useState<any[]>([]);
   const [todasAsistencias, setTodasAsistencias] = useState<any[]>([]);
+  const [pagosPendientesCount, setPagosPendientesCount] = useState(0);
 
-  // --- MÁQUINA DEL TIEMPO & FILTROS (ADMIN) ---
+  // --- ESTADOS: Perfil y Filtros ---
+  const [perfilSeleccionado, setPerfilSeleccionado] = useState<any | null>(null);
+  const [tabPerfil, setTabPerfil] = useState<'finanzas' | 'asistencia'>('finanzas');
+  const [modoEdicionPerfil, setModoEdicionPerfil] = useState(false);
+  const [filtroDeudores, setFiltroDeudores] = useState(false);
+  const [busqueda, setBusqueda] = useState("");
+  const [mesSeleccionadoFiltro, setMesSeleccionadoFiltro] = useState(nombresMeses[new Date().getMonth()]);
+  const [mesReporteDashboard, setMesReporteDashboard] = useState(nombresMeses[new Date().getMonth()]);
   const [fechaAdmin, setFechaAdmin] = useState(obtenerFechaColombia());
   const [filtroProfeAsistencia, setFiltroProfeAsistencia] = useState("Todos");
 
-  // --- FORMULARIOS ---
+  // --- ESTADOS: Edición de Perfil ---
+  const [editNombre, setEditNombre] = useState("");
+  const [editTelefono, setEditTelefono] = useState("");
+  const [editPaquete, setEditPaquete] = useState("");
+  const [editProfesor, setEditProfesor] = useState("");
+  const [editEsHermana, setEditEsHermana] = useState(false);
+  const [editGrupoFamiliar, setEditGrupoFamiliar] = useState("");
+  const [editVencimiento, setEditVencimiento] = useState("");
+  const [editDias, setEditDias] = useState<string[]>([]);
+  const [editClave, setEditClave] = useState("");
+  const [editFechaNacimiento, setEditFechaNacimiento] = useState(""); // NUEVO CAMPO EDICIÓN
+  const [editFoto, setEditFoto] = useState<File | null>(null);
+  const [editFotoPreview, setEditFotoPreview] = useState<string | null>(null); 
+  
+  // --- ESTADOS: Formularios (Inscripción) ---
   const [formNombre, setFormNombre] = useState("");
   const [formTelefono, setFormTelefono] = useState("57");
   const [formClave, setFormClave] = useState("");
+  const [formFechaNacimiento, setFormFechaNacimiento] = useState(""); 
   const [formPaqueteId, setFormPaqueteId] = useState("");
   const [formDias, setFormDias] = useState<string[]>([]);
   const [formProfesor, setFormProfesor] = useState(""); 
   const [formPagoInmediato, setFormPagoInmediato] = useState(true);
   const [formEsHermana, setFormEsHermana] = useState(false);
   const [formFechaManual, setFormFechaManual] = useState(obtenerFechaColombia());
+  const [formGrupoFamiliar, setFormGrupoFamiliar] = useState("");
   const [formFoto, setFormFoto] = useState<File | null>(null);
   const [formFotoPreview, setFormFotoPreview] = useState<string | null>(null);
   
+  // --- ESTADOS: Formularios (Finanzas y Nómina) ---
   const [nuevoGastoMonto, setNuevoGastoMonto] = useState("");
   const [nuevoGastoConcepto, setNuevoGastoConcepto] = useState("");
   const [nuevoGastoCategoria, setNuevoGastoCategoria] = useState("Mantenimiento");
-
   const [nuevoIngresoMonto, setNuevoIngresoMonto] = useState("");
   const [nuevoIngresoNota, setNuevoIngresoNota] = useState("");
   const [nuevoIngresoCategoria, setNuevoIngresoCategoria] = useState("Uniforme");
@@ -158,7 +177,7 @@ export default function EliteManager() {
   const [nuevoProfeNombre, setNuevoProfeNombre] = useState("");
   const [nuevoProfePin, setNuevoProfePin] = useState("1234");
 
-  // --- CARGAS Y EFECTOS ---
+  // --- EFECTOS ---
   useEffect(() => {
     const cargarBasicos = async () => {
       const { data } = await supabase.from("profesores").select("*").eq('activo', true).order('nombre');
@@ -172,31 +191,37 @@ export default function EliteManager() {
   }, []);
 
   useEffect(() => { 
-      if (usuarioActual) {
-          cargarTodo(); 
+    if (usuarioActual) {
+      cargarTodo(); 
 
-          // ⚡ MAGIA EN TIEMPO REAL: Escuchar lo que hacen los profes
-          const canalSincronizacion = supabase
-              .channel('cambios-en-vivo')
-              .on('postgres_changes', { event: '*', schema: 'public', table: 'asistencias' }, (payload) => {
-                  // Cuando un profe marca o quita asistencia, recargamos los datos silenciosamente
-                  cargarTodo();
-              })
-              .subscribe();
+      // MAGIA EN TIEMPO REAL: Escuchar cambios de asistencia
+      const canalSincronizacion = supabase
+        .channel('cambios-en-vivo')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'asistencias' }, (payload) => {
+            cargarTodo();
+        })
+        .subscribe();
 
-          // Limpiar el canal si cierras sesión
-          return () => {
-              supabase.removeChannel(canalSincronizacion);
-          };
-      }
-  }, [usuarioActual]);
+      // Escuchar pagos pendientes
+      const checkPagos = async () => {
+        const { count } = await supabase
+            .from('comprobantes_revision')
+            .select('*', { count: 'exact', head: true })
+            .eq('estado', 'pendiente');
+        if (count !== null) setPagosPendientesCount(count);
+      };
+      checkPagos();
 
-  // CÁLCULO DE NÓMINA - CORREGIDO
+      return () => {
+          supabase.removeChannel(canalSincronizacion);
+      };
+    }
+  }, [usuarioActual, vistaActual]);
+
   useEffect(() => {
     if (nominaProfe && nominaFechaInicio && nominaFechaFin) {
         const asistEnRango = todasAsistencias.filter(a => a.fecha >= nominaFechaInicio && a.fecha <= nominaFechaFin);
         const asistProfe = asistEnRango.filter(a => {
-            // Si el admin tomó la clase, el sistema registró "admin". En ese caso, leemos de quién es la alumna realmente.
             let profeReal = a.profesor_turno;
             if (!profeReal || profeReal === 'admin') {
                 const alumna = estudiantes.find(e => e.id === a.gimnasta_id);
@@ -211,6 +236,7 @@ export default function EliteManager() {
     }
   }, [nominaProfe, nominaFechaInicio, nominaFechaFin, todasAsistencias, estudiantes]);
 
+  // --- CARGA DE DATOS ---
   const cargarTodo = async () => {
     const { data: paq } = await supabase.from("paquetes").select("*").order('precio'); setPaquetes(paq || []);
     const { data: est } = await supabase.from("gimnastas").select(`*, paquetes(*)`).order('nombre'); setEstudiantes(est || []);
@@ -222,67 +248,7 @@ export default function EliteManager() {
     const { data: prof } = await supabase.from("profesores").select("*").eq('activo', true).order('nombre'); if (prof) setListaProfesores(prof);
   };
 
-  const loginAdmin = (e: any) => {
-    e.preventDefault();
-    if (passwordInput === "" || passwordInput === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) { 
-        setUsuarioActual('admin'); 
-        setVistaActual('inicio'); 
-        setFiltroDeudores(false);
-        setErrorLogin(false);
-    } else {
-        setErrorLogin(true);
-    }
-  };
-
-  const fondoApp = "url('/logob.png')";
-
-  // 🔴 PUERTA DE SEGURIDAD PREMIUM (SOLO ADMIN)
-  if (!usuarioActual) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-zinc-950 relative overflow-hidden text-left font-sans">
-        <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: fondoApp, backgroundSize: '400px', backgroundRepeat: 'repeat', backgroundPosition: 'center'}}></div>
-        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-cyan-900/20 blur-[150px] rounded-full pointer-events-none"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-900/10 blur-[150px] rounded-full pointer-events-none"></div>
-
-        <div className="relative z-10 w-full max-w-sm">
-          <div className="flex justify-center mb-8 relative">
-            <div className="absolute inset-0 bg-white/5 blur-3xl rounded-full scale-150"></div>
-            <img src="/logob.png" alt="Logo" className="w-32 h-32 relative z-10 object-contain drop-shadow-[0_0_30px_rgba(6,182,212,0.5)]" />
-          </div>
-
-          <div className="bg-zinc-900/40 backdrop-blur-2xl p-10 rounded-[3rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.5)] animate-in zoom-in duration-700">
-            <div className="text-center mb-10">
-              <h1 className="text-white text-2xl font-black mb-1 uppercase tracking-tighter">Acceso Dirección</h1>
-              <p className="text-cyan-500 text-[8px] font-black tracking-[0.5em] uppercase">Control Maestro Elite</p>
-            </div>
-
-            <form onSubmit={loginAdmin} className="space-y-8">
-              <div className="relative group">
-                <input 
-                  type="password" 
-                  value={passwordInput} 
-                  onChange={e => setPasswordInput(e.target.value)} 
-                  className={`w-full bg-transparent border-b-2 py-4 text-center text-white text-2xl tracking-[0.5em] focus:outline-none transition-all duration-300 placeholder-zinc-700 ${errorLogin ? 'border-red-500 text-red-400' : 'border-white/20 focus:border-cyan-400'}`} 
-                  placeholder="••••••••" 
-                  autoFocus 
-                />
-              </div>
-
-              {errorLogin && (
-                  <p className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center animate-in shake">Credenciales Incorrectas</p>
-              )}
-
-              <button type="submit" className="w-full bg-white text-black py-5 rounded-[2rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-[0_10px_40px_rgba(255,255,255,0.2)] hover:scale-[1.03] active:scale-95 transition-all duration-300">
-                Desbloquear Sistema
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 🟢 MATEMÁTICAS Y FUNCIONES
+  // --- MÉTODOS DE CÁLCULO ---
   const totalIngresosMensualidad = pagos
     .filter(p => p.gimnastas !== null) 
     .reduce((sum, p) => sum + p.monto, 0);
@@ -331,7 +297,6 @@ export default function EliteManager() {
   };
 
   const calcularDeudaTotalDashboard = () => estudiantes.reduce((acc, e) => acc + calcularMora(e).deudaTotal, 0);
-
   const indexMesReporte = nombresMeses.indexOf(mesReporteDashboard);
   
   const ingresosMesSeleccionado = pagos.filter(p => {
@@ -344,17 +309,46 @@ export default function EliteManager() {
       return mora.nombres.includes(mesReporteDashboard);
   });
 
+  const gruposExistentes = Array.from(new Set(estudiantes.map((e: any) => e.grupo_familiar).filter(Boolean)));
+
+  // --- ACCIONES ---
+  const loginAdmin = (e: any) => {
+    e.preventDefault();
+    if (passwordInput === "" || passwordInput === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) { 
+        setUsuarioActual('admin'); 
+        setVistaActual('inicio'); 
+        setFiltroDeudores(false);
+        setErrorLogin(false);
+    } else {
+        setErrorLogin(true);
+    }
+  };
+
+  const subirFotoSupabase = async (archivo: File) => {
+      const fileExt = archivo.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`; 
+
+      const { error: uploadError } = await supabase.storage
+          .from('fotos_alumnas')
+          .upload(filePath, archivo);
+
+      if (uploadError) {
+          console.error("Error al subir foto:", uploadError);
+          return null;
+      }
+
+      const { data } = supabase.storage.from('fotos_alumnas').getPublicUrl(filePath);
+      return data.publicUrl;
+  };
+
   const generarMensajeCobro = (gimnasta: any, meses: string[], deuda: number, esFiltroMes: boolean = false) => {
       if (!gimnasta.telefono_acudiente || gimnasta.telefono_acudiente.trim() === "") {
           setModalAlerta({ titulo: "Falta el Teléfono", mensaje: "Esta alumna no tiene un número de WhatsApp registrado.", tipo: "error" });
           return;
       }
 
-      // 🧹 LIMPIADOR AUTOMÁTICO DE NÚMEROS
-      // 1. Quita espacios, símbolos '+' y guiones
       let numeroLimpio = gimnasta.telefono_acudiente.replace(/\D/g, ''); 
-      
-      // 2. Si el número tiene 10 dígitos (ej: 3001234567), le agregamos el 57 de Colombia automáticamente
       if (numeroLimpio.length === 10) {
           numeroLimpio = '57' + numeroLimpio;
       }
@@ -363,19 +357,9 @@ export default function EliteManager() {
       let montoTexto = deuda.toLocaleString();
       
       const mensaje = esFiltroMes 
-  ? `¡Hola! Un saludo especial de Elite Gymnastics.
-  
-Queremos recordarle que *${gimnasta.nombre}* tiene pendiente el pago de la mensualidad del mes de *${mesSeleccionadoFiltro}* por un valor de *$${montoTexto}*. 
-  
-Agradecemos su gestión para ponerse al día.`
-  
-  : `¡Hola! Un saludo especial de Elite Gymnastics. ✨
-  
-Queremos recordarle que *${gimnasta.nombre}* presenta un saldo pendiente de *$${montoTexto}* correspondiente a los meses de: *${textoMeses}*. 
-  
-Agradecemos su gestión para ponerse al día.`;
+  ? `¡Hola! Un saludo especial de Elite Gymnastics.\n\nQueremos recordarle que *${gimnasta.nombre}* tiene pendiente el pago de la mensualidad del mes de *${mesSeleccionadoFiltro}* por un valor de *$${montoTexto}*.\n\nAgradecemos su gestión para ponerse al día.`
+  : `¡Hola! Un saludo especial de Elite Gymnastics. ✨\n\nQueremos recordarle que *${gimnasta.nombre}* presenta un saldo pendiente de *$${montoTexto}* correspondiente a los meses de: *${textoMeses}*.\n\nAgradecemos su gestión para ponerse al día.`;
       
-      // 🚀 Ahora usamos el 'numeroLimpio' en lugar del original
       window.open(`https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensaje)}`, '_blank');
   };
 
@@ -389,6 +373,7 @@ Agradecemos su gestión para ponerse al día.`;
               else { setModalAlerta({ titulo: "¡Contratación Exitosa!", mensaje: "El profesor ha sido agregado.", tipo: "exito" }); setNuevoProfeNombre(""); cargarTodo(); }
           }
       });
+  };
 
   const restablecerPinProfesor = (id: number, nombre: string) => {
       setInputPromptValue("");
@@ -397,28 +382,8 @@ Agradecemos su gestión para ponerse al día.`;
           accionConfirmar: async (val) => {
               if (!val) return setModalAlerta({ titulo: "Error", mensaje: "No ingresaste un PIN.", tipo: "error" });
               const { error } = await supabase.from("profesores").update({ pin_acceso: val, requiere_cambio_pin: true }).eq('id', id);
-              if (error) setModalAlerta({ titulo: "Error", mensaje: "Hubo un error.", tipo: "error" });
-              else { setModalAlerta({ titulo: "PIN Actualizado", mensaje: `El profesor debe cambiar la clave al entrar.`, tipo: "exito" }); cargarTodo(); }
-          }
-      });
-  };
-  };
-  const restablecerPinProfesor = (id: number, nombre: string) => {
-      setInputPromptValue("");
-      setModalInteractivo({
-          abierto: true, 
-          tipo: 'prompt', 
-          titulo: 'Restablecer PIN', 
-          mensaje: `Escribe la nueva contraseña temporal para ${nombre}:`, 
-          placeholder: 'Ej: 1234',
-          accionConfirmar: async (val) => {
-              if (!val) return setModalAlerta({ titulo: "Error", mensaje: "No ingresaste un PIN.", tipo: "error" });
-              const { error } = await supabase.from("profesores").update({ pin_acceso: val, requiere_cambio_pin: true }).eq('id', id);
               if (error) setModalAlerta({ titulo: "Error", mensaje: "Hubo un error de conexión.", tipo: "error" });
-              else { 
-                  setModalAlerta({ titulo: "PIN Actualizado", mensaje: `El profesor debe cambiar la clave al entrar.`, tipo: "exito" }); 
-                  cargarTodo(); 
-              }
+              else { setModalAlerta({ titulo: "PIN Actualizado", mensaje: `El profesor debe cambiar la clave al entrar.`, tipo: "exito" }); cargarTodo(); }
           }
       });
   };
@@ -439,11 +404,9 @@ Agradecemos su gestión para ponerse al día.`;
       setEditProfesor(gimnasta.profesor); setEditEsHermana(gimnasta.es_hermana || false); setEditDias(gimnasta.dias || []);
       setEditVencimiento(new Date(gimnasta.proximo_vencimiento).toISOString().split('T')[0]); setEditClave(gimnasta.clave_acceso || "");
       setEditGrupoFamiliar(gimnasta.grupo_familiar || "");
-      
-      // NUEVO: Limpiamos la foto nueva y mostramos la que ya tiene (si existe)
+      setEditFechaNacimiento(gimnasta.fecha_nacimiento || "");
       setEditFoto(null);
       setEditFotoPreview(gimnasta.foto_url || null);
-      
       setModoEdicionPerfil(true);
   };
 
@@ -461,29 +424,26 @@ Agradecemos su gestión para ponerse al día.`;
               
               setModalAlerta({ titulo: "Procesando...", mensaje: "Guardando cambios y actualizando foto...", tipo: "exito" });
 
-              // 1. Subir foto nueva si se seleccionó una
               let urlFotoActualizada = perfilSeleccionado.foto_url;
               if (editFoto) {
                   const nuevaUrl = await subirFotoSupabase(editFoto);
                   if (nuevaUrl) urlFotoActualizada = nuevaUrl;
               }
 
-              // 2. Guardar en base de datos
               const { error } = await supabase.from("gimnastas").update({ 
                   nombre: editNombre, telefono_acudiente: editTelefono, paquete_id: editPaquete, profesor: editProfesor,
                   es_hermana: editEsHermana, dias: editDias, proximo_vencimiento: new Date(editVencimiento).toISOString(),
                   clave_acceso: editClave, requiere_cambio_clave: true,
-                  foto_url: urlFotoActualizada, // Guardamos el link de la foto
-                  grupo_familiar: editGrupoFamiliar
+                  foto_url: urlFotoActualizada,
+                  grupo_familiar: editGrupoFamiliar,
+                  fecha_nacimiento: editFechaNacimiento
               }).eq('id', perfilSeleccionado.id);
 
               if (error) setModalAlerta({ titulo: "Error", mensaje: "Hubo un problema al guardar los cambios.", tipo: "error" });
               else { 
                   setModalAlerta({ titulo: "Guardado", mensaje: "Perfil actualizado exitosamente.", tipo: "exito" });
                   setModoEdicionPerfil(false); 
-                  
-                  // Actualizar la vista en vivo
-                  setPerfilSeleccionado({ ...perfilSeleccionado, nombre: editNombre, telefono_acudiente: editTelefono, paquete_id: editPaquete, profesor: editProfesor, es_hermana: editEsHermana, dias: editDias, proximo_vencimiento: new Date(editVencimiento).toISOString(), clave_acceso: editClave, foto_url: urlFotoActualizada, paquetes: paquetes.find(p => p.id == editPaquete) }); 
+                  setPerfilSeleccionado({ ...perfilSeleccionado, nombre: editNombre, telefono_acudiente: editTelefono, paquete_id: editPaquete, profesor: editProfesor, es_hermana: editEsHermana, dias: editDias, proximo_vencimiento: new Date(editVencimiento).toISOString(), clave_acceso: editClave, foto_url: urlFotoActualizada, grupo_familiar: editGrupoFamiliar, fecha_nacimiento: editFechaNacimiento, paquetes: paquetes.find(p => p.id == editPaquete) }); 
                   cargarTodo(); 
               }
           }
@@ -522,35 +482,11 @@ Agradecemos su gestión para ponerse al día.`;
     else setFormDias([...formDias, dia]);
   };
 
-  // 📸 FUNCIÓN PARA SUBIR FOTO A SUPABASE STORAGE
-  const subirFotoSupabase = async (archivo: File) => {
-      const fileExt = archivo.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`; // Se guarda en la raíz de fotos_alumnas
-
-      const { error: uploadError } = await supabase.storage
-          .from('fotos_alumnas')
-          .upload(filePath, archivo);
-
-      if (uploadError) {
-          console.error("Error al subir foto:", uploadError);
-          return null;
-      }
-
-      // Obtener el link público para guardarlo en la base de datos
-      const { data } = supabase.storage.from('fotos_alumnas').getPublicUrl(filePath);
-      return data.publicUrl;
-  };
-
-
-
   const inscribirGimnasta = async () => {
-    if (!formNombre || !formPaqueteId || !formClave) return setModalAlerta({ titulo: "Faltan Datos", mensaje: "Nombre, plan y contraseña obligatorios.", tipo: "error" });
+    if (!formNombre || !formPaqueteId || !formClave || !formFechaNacimiento) return setModalAlerta({ titulo: "Faltan Datos", mensaje: "Nombre, plan, clave y fecha de nacimiento son obligatorios.", tipo: "error" });
     
-    // 1. Mostrar que estamos procesando (la foto puede tardar 1 o 2 segundos)
     setModalAlerta({ titulo: "Procesando...", mensaje: "Guardando ficha técnica y subiendo foto...", tipo: "exito" });
 
-    // 2. Subir la foto si el usuario seleccionó una
     let urlFotoGuardada = null;
     if (formFoto) {
         urlFotoGuardada = await subirFotoSupabase(formFoto);
@@ -561,14 +497,14 @@ Agradecemos su gestión para ponerse al día.`;
     const precioFull = paquetes.find(p => p.id == formPaqueteId)?.precio || 0;
     const montoInicial = formEsHermana ? (precioFull / 2) : precioFull;
     
-    // 3. Guardar en la base de datos (Incluyendo la nueva foto_url)
     const { data: nueva } = await supabase.from("gimnastas").insert([{ 
         nombre: formNombre, telefono_acudiente: formTelefono, paquete_id: formPaqueteId, dias: formDias, profesor: formProfesor, 
         estado: formPagoInmediato ? "Activo" : "Pendiente", proximo_vencimiento: vencimiento.toISOString(), created_at: fechaBase.toISOString(),
+        fecha_nacimiento: formFechaNacimiento,
         es_hermana: formEsHermana, 
         clave_acceso: formClave, requiere_cambio_clave: true,
         foto_url: urlFotoGuardada,
-        grupo_familiar: formGrupoFamiliar || null // <--- AQUÍ ESTÁ EL ARREGLO, YA NO DEPENDE DEL BOTÓN
+        grupo_familiar: formGrupoFamiliar || null
     }]).select().single();
 
     if (formPagoInmediato && nueva) {
@@ -576,9 +512,8 @@ Agradecemos su gestión para ponerse al día.`;
     }
     setModalAlerta({ titulo: "¡Bienvenida a Elite!", mensaje: "Alumna inscrita con éxito.", tipo: "exito" });
     
-    // 4. Limpiar el formulario
     setFormNombre(""); setFormTelefono("57"); setFormClave(""); setFormDias([]); 
-    setFormFoto(null); setFormFotoPreview(null); // Limpiar foto
+    setFormFoto(null); setFormFotoPreview(null); setFormFechaNacimiento("");
     cargarTodo(); setVistaActual('directorio');
   };
 
@@ -625,7 +560,6 @@ Agradecemos su gestión para ponerse al día.`;
 
   const iniciarCobro = (gimnasta: any) => {
     const mora = calcularMora(gimnasta);
-    // Si debe meses, cobramos la mora. Si está al día, asumimos que pagará 1 mes por adelantado.
     const mesesPagar = mora.meses > 0 ? mora.meses : 1;
     const deudaCalculada = mora.precioIndividual * mesesPagar;
 
@@ -635,7 +569,7 @@ Agradecemos su gestión para ponerse al día.`;
         mora, 
         mesesSeleccionados: mesesPagar,
         montoMora: deudaCalculada,
-        montoAbono: deudaCalculada.toString() // Permite al admin editar el número para abonos
+        montoAbono: deudaCalculada.toString()
     });
   };
 
@@ -649,48 +583,35 @@ Agradecemos su gestión para ponerse al día.`;
     const precioFull = gimnasta.paquetes?.precio || 0;
     const precioIndividual = gimnasta.es_hermana ? (precioFull / 2) : precioFull;
 
-    // Calcula cuántos días de entrenamiento compra este dinero
     const diasComprados = Math.round((montoFinal / precioIndividual) * 30);
-
     let conceptoFinal = gimnasta.es_hermana ? "Mensualidad / Abono (Hermana)" : "Mensualidad / Abono";
     
-    // 🧠 LÓGICA INTELIGENTE DE MENSAJES PARA WHATSAPP
     let saldoRestante = mora.deudaTotal - montoFinal;
     let mensajeRecibo = "";
 
     if (saldoRestante > 0) {
-        // CASO 1: Queda debiendo dinero (Abono o pago parcial de meses)
         if (montoFinal >= precioIndividual) {
-            // Pagó al menos 1 mes completo, pero debe más (Ej: Debía 3, pagó 2)
             let mesesPagados = Math.floor(montoFinal / precioIndividual);
             let mesesCubiertos = mora.nombres.slice(0, mesesPagados).join(", ");
             mensajeRecibo = `¡Hola! Un saludo de Elite Gymnastics.\n\nHemos recibido exitosamente tu pago de *$${montoFinal.toLocaleString()}* correspondiente a: *${mesesCubiertos}* para la alumna *${gimnasta.nombre}*.\n\nAún presenta un saldo pendiente de *$${saldoRestante.toLocaleString()}*. ¡Gracias por tu apoyo!`;
         } else {
-            // Es un abono menor a un mes entero (Ej: Debía $100.000, abonó $50.000)
             let mesActualCobro = mora.nombres.length > 0 ? mora.nombres[0] : nombresMeses[new Date().getMonth()];
             mensajeRecibo = `¡Hola! Un saludo de Elite Gymnastics.\n\nHemos registrado exitosamente tu abono de *$${montoFinal.toLocaleString()}* a la mensualidad de *${mesActualCobro}* para la alumna *${gimnasta.nombre}*.\n\nQueda un saldo pendiente de *$${saldoRestante.toLocaleString()}*. ¡Gracias por tu apoyo!`;
         }
     } else {
-        // CASO 2: Pagó toda la deuda (Al día)
         let mesesCubiertos = mora.nombres.length > 0 ? mora.nombres.join(", ") : nombresMeses[new Date().getMonth()];
         mensajeRecibo = `¡Hola! Un saludo de Elite Gymnastics.\n\nHemos recibido exitosamente tu pago de *$${montoFinal.toLocaleString()}* correspondiente a: *${mesesCubiertos}* para la alumna *${gimnasta.nombre}*.\n\nLa cuenta se encuentra al día. ¡Gracias por tu apoyo!`;
     }
 
-    // 🚀 ANTI-BLOQUEO WHATSAPP: Lógica directa para Safari/Mac
     if (!gimnasta.telefono_acudiente || gimnasta.telefono_acudiente === "57" || gimnasta.telefono_acudiente.trim() === "") {
         setModalAlerta({ titulo: "Pago Registrado", mensaje: `Abono de $${montoFinal.toLocaleString()} guardado, pero la alumna no tiene teléfono registrado.`, tipo: "exito" });
     } else {
-        // Limpiador automático de números
         let numeroLimpio = gimnasta.telefono_acudiente.replace(/\D/g, ''); 
         if (numeroLimpio.length === 10) numeroLimpio = '57' + numeroLimpio;
-        
-        // Apertura directa para evitar bloqueos del navegador
         window.open(`https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensajeRecibo)}`, '_blank');
-        
         setModalAlerta({ titulo: "¡Recibo Enviado!", mensaje: `El pago de $${montoFinal.toLocaleString()} se procesó exitosamente.`, tipo: "exito" });
     }
 
-    // Actualización de base de datos
     const fVence = new Date(gimnasta.proximo_vencimiento); 
     fVence.setDate(fVence.getDate() + diasComprados);
 
@@ -702,7 +623,6 @@ Agradecemos su gestión para ponerse al día.`;
     if (perfilSeleccionado && perfilSeleccionado.id === gimnasta.id) setPerfilSeleccionado({ ...perfilSeleccionado, proximo_vencimiento: fVence.toISOString() });
   };
 
-  // --- LÓGICA DE ASISTENCIA ULTRARRÁPIDA (CON CORRECCIÓN DE NÓMINA) ---
   const cambiarDiaAdmin = (dias: number) => {
       const current = new Date(fechaAdmin + "T12:00:00");
       current.setDate(current.getDate() + dias);
@@ -713,12 +633,9 @@ Agradecemos su gestión para ponerse al día.`;
     const asistido = todasAsistencias.find(a => a.gimnasta_id === gimnastaId && a.fecha === fechaAdmin);
     
     if (asistido) { 
-        // ⚡ Actualización Optimista: Removemos visualmente inmediato
         setTodasAsistencias(prev => prev.filter(a => a.id !== asistido.id));
         await supabase.from("asistencias").delete().match({ id: asistido.id }); 
     } else { 
-        // ⚡ Actualización Optimista: Agregamos visualmente inmediato
-        // Asignamos a su propio profesor para no dañar la nómina
         const alumna = estudiantes.find(e => e.id === gimnastaId);
         const profeResponsable = alumna?.profesor || 'admin';
         
@@ -726,14 +643,11 @@ Agradecemos su gestión para ponerse al día.`;
         setTodasAsistencias(prev => [...prev, nuevaAsis]);
         await supabase.from("asistencias").insert({ gimnasta_id: gimnastaId, fecha: fechaAdmin, presente: true, profesor_turno: profeResponsable }); 
     }
-    // Sincronización silenciosa final
     cargarTodo();
   };
 
   const diaVisualizacion = obtenerNombreDia(fechaAdmin);
 
-
-  // 📲 ENVÍO DE COBROS INTELIGENTE (HERMANAS Y NORMALES)
   const enviarRecordatorioMora = (gimnastaPrincipal: any, moraPrincipal: any) => {
       let numeroLimpio = gimnastaPrincipal.telefono_acudiente?.replace(/\D/g, '') || "";
       if (numeroLimpio.length === 10) numeroLimpio = '57' + numeroLimpio;
@@ -742,7 +656,6 @@ Agradecemos su gestión para ponerse al día.`;
       let mensajeFinal = "";
 
       if (gimnastaPrincipal.grupo_familiar) {
-          // 👯‍♀️ LÓGICA PARA HERMANAS
           const hermanas = estudiantes.filter((e: any) => e.grupo_familiar?.toLowerCase() === gimnastaPrincipal.grupo_familiar.toLowerCase());
           
           let totalDeuda = 0;
@@ -770,27 +683,72 @@ Agradecemos su gestión para ponerse al día.`;
           mensajeFinal = `¡Hola! Un saludo especial de Elite Gymnastics.\n\nCompartimos la información de las ${gimnastaPrincipal.grupo_familiar}, tienen pendiente el pago de la mensualidad del mes de ${mesesTexto} por un valor de $${totalDeuda.toLocaleString()}. Divididos en ${textoDivididos}.\n\nQuedamos atentos a cualquier inquietud.\n\nFeliz día`;
 
       } else {
-          // 👤 LÓGICA NORMAL (ALUMNA INDIVIDUAL)
           if (moraPrincipal.meses === 0) return alert("La alumna está al día.");
-          
           mensajeFinal = `Hola! Un saludo especial de Elite Gymnastics.\n\nCompartimos la información de que ${gimnastaPrincipal.nombre.toUpperCase()} hasta la fecha presenta un saldo pendiente de $${moraPrincipal.deudaTotal.toLocaleString()} correspondiente a los meses de: ${moraPrincipal.nombres.join(", ")} que va en curso.\n\nQuedamos atentos a cualquier inquietud.\n\nFeliz día`;
       }
 
       window.open(`https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensajeFinal)}`, '_blank');
   };
 
-// Extraer lista de grupos únicos que ya existen en la base de datos (sin repetir)
-  const gruposExistentes = Array.from(new Set(estudiantes.map((e: any) => e.grupo_familiar).filter(Boolean)));
+  const fondoApp = "url('/logob.png')";
+
+  // --- PUERTA DE SEGURIDAD PREMIUM (SOLO ADMIN) ---
+  if (!usuarioActual) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-zinc-950 relative overflow-hidden text-left font-sans">
+        <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: fondoApp, backgroundSize: '400px', backgroundRepeat: 'repeat', backgroundPosition: 'center'}}></div>
+        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-cyan-900/20 blur-[150px] rounded-full pointer-events-none"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-blue-900/10 blur-[150px] rounded-full pointer-events-none"></div>
+
+        <div className="relative z-10 w-full max-w-sm">
+          <div className="flex justify-center mb-8 relative">
+            <div className="absolute inset-0 bg-white/5 blur-3xl rounded-full scale-150"></div>
+            <img src="/logob.png" alt="Logo" className="w-32 h-32 relative z-10 object-contain drop-shadow-[0_0_30px_rgba(6,182,212,0.5)]" />
+          </div>
+
+          <div className="bg-zinc-900/40 backdrop-blur-2xl p-10 rounded-[3rem] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.5)] animate-in zoom-in duration-700">
+            <div className="text-center mb-10">
+              <h1 className="text-white text-2xl font-black mb-1 uppercase tracking-tighter">Acceso Dirección</h1>
+              <p className="text-cyan-500 text-[8px] font-black tracking-[0.5em] uppercase">Control Maestro Elite</p>
+            </div>
+
+            <form onSubmit={loginAdmin} className="space-y-8">
+              <div className="relative group">
+                <input 
+                  type="password" 
+                  value={passwordInput} 
+                  onChange={e => setPasswordInput(e.target.value)} 
+                  className={`w-full bg-transparent border-b-2 py-4 text-center text-white text-2xl tracking-[0.5em] focus:outline-none transition-all duration-300 placeholder-zinc-700 ${errorLogin ? 'border-red-500 text-red-400' : 'border-white/20 focus:border-cyan-400'}`} 
+                  placeholder="••••••••" 
+                  autoFocus 
+                />
+              </div>
+
+              {errorLogin && (
+                  <p className="text-[9px] font-black text-red-500 uppercase tracking-widest text-center animate-in shake">Credenciales Incorrectas</p>
+              )}
+
+              <button type="submit" className="w-full bg-white text-black py-5 rounded-[2rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-[0_10px_40px_rgba(255,255,255,0.2)] hover:scale-[1.03] active:scale-95 transition-all duration-300">
+                Desbloquear Sistema
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // --- INTERFAZ PRINCIPAL ---
-
   return (
     <div className="flex min-h-screen bg-zinc-950 text-white font-sans relative">
       <div className="fixed inset-0 opacity-[0.03] pointer-events-none" style={{backgroundImage: fondoApp, backgroundSize: '300px', backgroundRepeat: 'repeat', backgroundPosition: 'center'}}></div>
       
       {/* NAVEGACION MOVIL */}
       <div className="md:hidden fixed top-0 left-0 w-full bg-black/80 backdrop-blur-lg p-4 z-40 flex justify-between items-center border-b border-white/10">
-        <div className="flex items-center gap-2 text-left"><img src="/logob.png" className="w-8 h-8 object-contain" /><h1 className="text-[10px] font-bold uppercase tracking-tight">Elite Barranquilla</h1></div>
+        <div className="flex items-center gap-2 text-left">
+          <img src="/logob.png" className="w-8 h-8 object-contain" />
+          <h1 className="text-[10px] font-bold uppercase tracking-tight">Elite Barranquilla</h1>
+        </div>
         <button onClick={() => setMenuMovilAbierto(!menuMovilAbierto)} className="p-2 bg-white/5 rounded-lg text-xl text-white">
             {menuMovilAbierto ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -808,6 +766,20 @@ Agradecemos su gestión para ponerse al día.`;
           <BotonMenu icono={<Users size={18} />} texto="Directorio" activo={vistaActual === 'directorio'} onClick={() => {setVistaActual('directorio'); setMenuMovilAbierto(false)}} />
           <BotonMenu icono={<UserPlus size={18} />} texto="Inscripciones" activo={vistaActual === 'inscripciones'} onClick={() => {setVistaActual('inscripciones'); setMenuMovilAbierto(false)}} />
           <BotonMenu icono={<CalendarCheck size={18} />} texto="Auditoría Asistencia" activo={vistaActual === 'asistencia'} onClick={() => {setVistaActual('asistencia'); setMenuMovilAbierto(false)}} />
+          
+          {/* BOTÓN DE VALIDAR PAGOS CON NOTIFICACIÓN */}
+          <button onClick={() => {setVistaActual('revision_pagos'); setMenuMovilAbierto(false)}} className={`w-full text-left p-4 rounded-2xl flex items-center justify-between transition-all duration-300 transform hover:scale-[1.02] active:scale-95 ${vistaActual === 'revision_pagos' ? 'bg-gradient-to-r from-yellow-600 to-yellow-800 text-white shadow-lg shadow-yellow-900/30 border border-yellow-500/30 translate-x-2' : 'text-zinc-500 hover:bg-white/5 hover:text-white border border-transparent'}`}>
+              <div className="flex items-center gap-4">
+                  <span className={`${vistaActual === 'revision_pagos' ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-zinc-500'}`}><FileText size={18} /></span> 
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">Validar Pagos</span>
+              </div>
+              {pagosPendientesCount > 0 && (
+                  <span className="bg-yellow-500 text-black text-[9px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-[0_0_10px_rgba(234,179,8,0.5)]">
+                      {pagosPendientesCount}
+                  </span>
+              )}
+          </button>
+
           <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-4"></div>
           <BotonMenu icono={<Wallet size={18} />} texto="Gastos y Caja" activo={vistaActual === 'gastos'} onClick={() => {setVistaActual('gastos'); setMenuMovilAbierto(false)}} />
           <BotonMenu icono={<CreditCard size={18} />} texto="Nómina Profes" activo={vistaActual === 'nomina'} onClick={() => {setVistaActual('nomina'); setMenuMovilAbierto(false)}} />
@@ -828,7 +800,6 @@ Agradecemos su gestión para ponerse al día.`;
 
       <main className="flex-1 p-4 pt-24 md:p-10 lg:p-14 overflow-x-hidden relative z-10 text-left">
         
-
         {/* DASHBOARD */}
         {vistaActual === 'inicio' && (
           <Dashboard 
@@ -846,8 +817,12 @@ Agradecemos su gestión para ponerse al día.`;
           />
         )}
 
+        {/* REVISIÓN DE PAGOS */}
+        {vistaActual === 'revision_pagos' && <RevisionPagos />}
+
         {/* COMPETENCIAS */}
         {vistaActual === 'competencias' && <CompetenciasModulo estudiantes={estudiantes} esAdmin={true} />}
+        
         {/* MENSAJES */}
         {vistaActual === 'mensajes' && <MensajesModulo estudiantes={estudiantes} />}
         
@@ -891,7 +866,6 @@ Agradecemos su gestión para ponerse al día.`;
                                 <div className="text-left overflow-hidden flex-1">
                                     <p className="font-black text-sm uppercase leading-tight mb-1 truncate group-hover:text-white transition-colors">
                                         {e.nombre} 
-                                        {/* Pequeño indicador si es de un grupo familiar */}
                                         {e.grupo_familiar && <span className="block text-[8px] text-cyan-500 tracking-widest mt-0.5">{e.grupo_familiar}</span>}
                                     </p>
                                     <p className="text-[9px] text-zinc-500 uppercase font-black tracking-[0.2em]">
@@ -901,7 +875,6 @@ Agradecemos su gestión para ponerse al día.`;
                                     </p>
                                 </div>
                                 
-                                {/* BOTÓN INTELIGENTE CONECTADO */}
                                 {filtroDeudores && (
                                     <button 
                                         onClick={(btnEvent) => {
@@ -975,10 +948,9 @@ Agradecemos su gestión para ponerse al día.`;
             </div>
         )}
 
-        {/* ASISTENCIA CON MÁQUINA DEL TIEMPO (ADMIN) Y FILTROS */}
+        {/* ASISTENCIA */}
         {vistaActual === 'asistencia' && (
           <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 text-left">
-            
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6 bg-zinc-900/40 backdrop-blur-2xl p-8 rounded-[2rem] border border-white/5 shadow-2xl">
                 <div className="flex items-center gap-5">
                     <div className="w-14 h-14 rounded-full bg-cyan-900/30 flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-inner"><CalendarCheck size={28}/></div>
@@ -1046,106 +1018,177 @@ Agradecemos su gestión para ponerse al día.`;
         )}
 
         {/* INSCRIPCION */}
-{vistaActual === 'inscripciones' && (
-    <div className="max-w-2xl mx-auto bg-zinc-900/60 backdrop-blur-2xl p-10 rounded-[3rem] border border-white/5 shadow-2xl space-y-6 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-cyan-600 to-blue-600"></div>
-        <div className="text-center mb-10">
-            <div className="w-16 h-16 rounded-full bg-cyan-900/30 flex items-center justify-center text-cyan-400 border border-cyan-500/20 mx-auto mb-4"><UserPlus size={28} /></div>
-            <h2 className="text-2xl font-black uppercase tracking-tighter text-white">FICHA de LA GIMNASTA</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em] mt-1">Creación de Perfil Oficial</p>
-        </div>
-    
-        <div className="space-y-5 bg-black/20 p-8 rounded-[2rem] border border-white/5">
-            {/* BOTÓN CIRCULAR PARA SUBIR FOTO */}
-            <div className="flex flex-col items-center justify-center mb-6">
-                <label className="cursor-pointer relative group">
-                    <div className={`w-24 h-24 rounded-full border-2 border-dashed ${formFotoPreview ? 'border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.3)]' : 'border-zinc-600'} flex items-center justify-center overflow-hidden bg-zinc-900/50 group-hover:bg-zinc-800 transition-all`}>
-                        {formFotoPreview ? (
-                            <img src={formFotoPreview} alt="Preview" className="w-full h-full object-cover" />
-                        ) : (
-                            <Camera size={32} className="text-zinc-500 group-hover:text-cyan-400 transition-colors" />
-                        )}
+        {vistaActual === 'inscripciones' && (
+            <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500 w-full max-w-4xl mx-auto">
+                
+                {/* WIDGET DE CUMPLEAÑOS DEL MES */}
+                {(() => {
+                    const fechaActual = new Date();
+                    const mesActual = fechaActual.getMonth() + 1;
+                    const anioActual = fechaActual.getFullYear();
+
+                    const cumpleanerasMes = estudiantes.filter(e => {
+                        if (!e.fecha_nacimiento) return false;
+                        const [, mesNac] = e.fecha_nacimiento.split('-');
+                        return parseInt(mesNac) === mesActual;
+                    }).sort((a, b) => {
+                        const diaA = parseInt(a.fecha_nacimiento.split('-')[2]);
+                        const diaB = parseInt(b.fecha_nacimiento.split('-')[2]);
+                        return diaA - diaB;
+                    });
+
+                    if (cumpleanerasMes.length === 0) return null;
+
+                    return (
+                        <div className="bg-gradient-to-br from-pink-900/20 to-purple-900/20 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-pink-500/20 shadow-2xl relative overflow-hidden text-left">
+                            <div className="absolute -top-10 -right-10 w-48 h-48 bg-pink-500/10 blur-[50px] rounded-full pointer-events-none"></div>
+                            
+                            <div className="flex items-center gap-4 mb-6 relative z-10">
+                                <div className="w-12 h-12 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-400 border border-pink-500/30">
+                                    <Cake size={24} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black uppercase tracking-tighter text-white">Cumpleaños de {nombresMeses[mesActual - 1]}</h2>
+                                    <p className="text-[10px] text-pink-300/70 font-bold uppercase tracking-[0.2em]">Celebraciones de este mes</p>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-4 relative z-10">
+                                {cumpleanerasMes.map(g => {
+                                    const [anioNac, , diaNac] = g.fecha_nacimiento.split('-');
+                                    const edadCumplida = anioActual - parseInt(anioNac);
+                                    const diaDeHoy = fechaActual.getDate();
+                                    const esHoy = parseInt(diaNac) === diaDeHoy;
+
+                                    return (
+                                        <div key={g.id} className={`flex items-center gap-4 p-4 pr-6 rounded-2xl border transition-all ${esHoy ? 'bg-pink-600 border-pink-400 shadow-[0_0_20px_rgba(236,72,153,0.4)] scale-105' : 'bg-black/30 border-white/5 hover:bg-white/5'}`}>
+                                            <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shadow-inner ${esHoy ? 'bg-white text-pink-600' : 'bg-zinc-800 text-zinc-400'}`}>
+                                                <span className="text-[8px] font-black uppercase tracking-widest">{nombresMeses[mesActual - 1].substring(0,3)}</span>
+                                                <span className="text-lg font-black leading-none">{diaNac}</span>
+                                            </div>
+                                            <div>
+                                                <p className={`font-black uppercase text-sm leading-tight mb-1 ${esHoy ? 'text-white' : 'text-zinc-200'}`}>{g.nombre.split(' ')[0]} {g.nombre.split(' ')[1] || ''}</p>
+                                                <p className={`text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-1 ${esHoy ? 'text-pink-200' : 'text-zinc-500'}`}>
+                                                    {esHoy ? <Gift size={10} /> : <CalendarDays size={10} />}
+                                                    {esHoy ? '¡CUMPLE HOY!' : `Cumple ${edadCumplida} años`}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* FORMULARIO DE INSCRIPCIÓN */}
+                <div className="max-w-2xl mx-auto bg-zinc-900/60 backdrop-blur-2xl p-10 rounded-[3rem] border border-white/5 shadow-2xl relative overflow-hidden text-left">
+                    <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-cyan-600 to-blue-600"></div>
+                    <div className="text-center mb-10">
+                        <div className="w-16 h-16 rounded-full bg-cyan-900/30 flex items-center justify-center text-cyan-400 border border-cyan-500/20 mx-auto mb-4"><UserPlus size={28} /></div>
+                        <h2 className="text-2xl font-black uppercase tracking-tighter text-white">FICHA de LA GIMNASTA</h2>
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.2em] mt-1">Creación de Perfil Oficial</p>
                     </div>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                            setFormFoto(e.target.files[0]);
-                            setFormFotoPreview(URL.createObjectURL(e.target.files[0]));
-                        }
-                    }} />
-                </label>
-                <p className="text-[9px] text-zinc-500 font-black uppercase tracking-widest mt-3">Toca para añadir foto (Opcional)</p>
-            </div>
+                
+                    <div className="space-y-5 bg-black/20 p-8 rounded-[2rem] border border-white/5">
+                        <div className="flex flex-col items-center justify-center mb-6">
+                            <label className="cursor-pointer relative group">
+                                <div className={`w-24 h-24 rounded-full border-2 border-dashed ${formFotoPreview ? 'border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.3)]' : 'border-zinc-600'} flex items-center justify-center overflow-hidden bg-zinc-900/50 group-hover:bg-zinc-800 transition-all`}>
+                                    {formFotoPreview ? (
+                                        <img src={formFotoPreview} alt="Preview" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <Camera size={32} className="text-zinc-500 group-hover:text-cyan-400 transition-colors" />
+                                    )}
+                                </div>
+                                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                        setFormFoto(e.target.files[0]);
+                                        setFormFotoPreview(URL.createObjectURL(e.target.files[0]));
+                                    }
+                                }} />
+                            </label>
+                            <p className="text-[9px] text-zinc-500 font-black uppercase tracking-widest mt-3">Toca para añadir foto (Opcional)</p>
+                        </div>
 
-            <InputStyled label="Nombre Completo" placeholder="Ej: Isabella Santos..." value={formNombre} onChange={(e: any) => setFormNombre(e.target.value)} />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <InputStyled label="Teléfono (WhatsApp)" placeholder="Ej: 573001234567" value={formTelefono} onChange={(e: any) => setFormTelefono(e.target.value)} /> 
-                <InputStyled label="Clave de Seguridad" placeholder="Ej: Doc. Identidad" value={formClave} onChange={(e: any) => setFormClave(e.target.value)} />
-            </div>
-            <InputStyled label="Fecha de Registro Base" type="date" value={formFechaManual} onChange={(e: any) => setFormFechaManual(e.target.value)} />
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-left">
-            <div className="bg-black/20 p-5 rounded-3xl border border-white/5">
-                <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block mb-2 ml-1">Plan Contratado</label>
-                <select className="bg-zinc-900 p-4 rounded-xl border border-white/10 outline-none text-white w-full text-xs font-bold uppercase focus:border-cyan-500 transition-colors shadow-inner" value={formPaqueteId} onChange={(e: any) => setFormPaqueteId(e.target.value)}><option value="" className="bg-zinc-900">SELECCIONAR PLAN...</option>{paquetes.map(p => <option key={p.id} value={p.id} className="bg-zinc-900">{p.nombre} - $ {p.precio.toLocaleString()}</option>)}</select>
-            </div>
-            <div className="bg-black/20 p-5 rounded-3xl border border-white/5">
-                <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block mb-2 ml-1">Profesor Responsable</label>
-                <select className="bg-zinc-900 p-4 rounded-xl border border-white/10 outline-none text-white w-full text-xs font-bold uppercase focus:border-cyan-500 transition-colors shadow-inner" value={formProfesor} onChange={(e: any) => setFormProfesor(e.target.value)}>{listaProfesores.map(p => <option key={p.id} value={p.nombre} className="bg-zinc-900">{p.nombre}</option>)}</select>
-            </div>
-        </div>
+                        <InputStyled label="Nombre Completo" placeholder="Ej: Isabella Santos..." value={formNombre} onChange={(e: any) => setFormNombre(e.target.value)} />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <InputStyled label="Teléfono (WhatsApp)" placeholder="Ej: 573001234567" value={formTelefono} onChange={(e: any) => setFormTelefono(e.target.value)} /> 
+                            <InputStyled label="Fecha de Nacimiento" type="date" value={formFechaNacimiento} onChange={(e: any) => setFormFechaNacimiento(e.target.value)} />
+                        </div>
 
-        <div className="text-left bg-black/20 p-6 rounded-[2rem] border border-white/5">
-             <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block mb-4 ml-1">Asignación de Horario (Días)</label>
-             <div className="flex flex-wrap gap-3">
-                 {diasSemana.map(dia => (
-                    <button key={dia} onClick={() => toggleDia(dia)} className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-90 ${formDias.includes(dia) ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-105' : 'bg-zinc-900 text-zinc-500 hover:bg-zinc-800 hover:text-white border border-white/5'}`}>{dia}</button>
-                 ))}
-             </div>
-        </div>
-        
-        {/* SECCIÓN DE HERMANAS Y CAJA (MEJORADO) */}
-        <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 group ${formEsHermana ? 'bg-purple-900/20 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'bg-black/20 border-white/5 hover:border-white/10'}`} onClick={() => setFormEsHermana(!formEsHermana)}>
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${formEsHermana ? 'bg-purple-600 text-white shadow-inner' : 'bg-zinc-800 text-zinc-600 group-hover:text-zinc-400'}`}>{formEsHermana ? <Check size={16} strokeWidth={4}/> : <MinusCircle size={16}/>}</div>
-                    <span className="text-[10px] font-black uppercase text-white tracking-widest leading-tight">Beca Hermana<br/><span className="text-purple-400 text-[8px] tracking-[0.2em]">-50% Descuento</span></span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <InputStyled label="Clave de Seguridad" placeholder="Ej: Doc. Identidad" value={formClave} onChange={(e: any) => setFormClave(e.target.value)} />
+                            <InputStyled label="Fecha de Registro Base" type="date" value={formFechaManual} onChange={(e: any) => setFormFechaManual(e.target.value)} />
+                        </div>
+                    </div>
+                
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-left mt-5">
+                        <div className="bg-black/20 p-5 rounded-3xl border border-white/5">
+                            <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block mb-2 ml-1">Plan Contratado</label>
+                            <select className="bg-zinc-900 p-4 rounded-xl border border-white/10 outline-none text-white w-full text-xs font-bold uppercase focus:border-cyan-500 transition-colors shadow-inner" value={formPaqueteId} onChange={(e: any) => setFormPaqueteId(e.target.value)}>
+                                <option value="" className="bg-zinc-900">SELECCIONAR PLAN...</option>
+                                {paquetes.map(p => <option key={p.id} value={p.id} className="bg-zinc-900">{p.nombre} - $ {p.precio.toLocaleString()}</option>)}
+                            </select>
+                        </div>
+                        <div className="bg-black/20 p-5 rounded-3xl border border-white/5">
+                            <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block mb-2 ml-1">Profesor Responsable</label>
+                            <select className="bg-zinc-900 p-4 rounded-xl border border-white/10 outline-none text-white w-full text-xs font-bold uppercase focus:border-cyan-500 transition-colors shadow-inner" value={formProfesor} onChange={(e: any) => setFormProfesor(e.target.value)}>
+                                {listaProfesores.map(p => <option key={p.id} value={p.nombre} className="bg-zinc-900">{p.nombre}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="text-left bg-black/20 p-6 rounded-[2rem] border border-white/5 mt-5">
+                        <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block mb-4 ml-1">Asignación de Horario (Días)</label>
+                        <div className="flex flex-wrap gap-3">
+                            {diasSemana.map(dia => (
+                                <button key={dia} onClick={() => toggleDia(dia)} className={`px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all active:scale-90 ${formDias.includes(dia) ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)] scale-105' : 'bg-zinc-900 text-zinc-500 hover:bg-zinc-800 hover:text-white border border-white/5'}`}>{dia}</button>
+                            ))}
+                        </div>
+                    </div>
+                
+                    <div className="space-y-4 mt-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 group ${formEsHermana ? 'bg-purple-900/20 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'bg-black/20 border-white/5 hover:border-white/10'}`} onClick={() => setFormEsHermana(!formEsHermana)}>
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${formEsHermana ? 'bg-purple-600 text-white shadow-inner' : 'bg-zinc-800 text-zinc-600 group-hover:text-zinc-400'}`}>{formEsHermana ? <Check size={16} strokeWidth={4}/> : <MinusCircle size={16}/>}</div>
+                                <span className="text-[10px] font-black uppercase text-white tracking-widest leading-tight">Beca Hermana<br/><span className="text-purple-400 text-[8px] tracking-[0.2em]">-50% Descuento</span></span>
+                            </div>
+
+                            <div className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 group ${formPagoInmediato ? 'bg-green-900/20 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.15)]' : 'bg-black/20 border-white/5 hover:border-white/10'}`} onClick={() => setFormPagoInmediato(!formPagoInmediato)}>
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${formPagoInmediato ? 'bg-green-600 text-white shadow-inner' : 'bg-zinc-800 text-zinc-600 group-hover:text-zinc-400'}`}>{formPagoInmediato ? <Check size={16} strokeWidth={4}/> : <HelpCircle size={16}/>}</div>
+                                <span className="text-[10px] font-black uppercase text-white tracking-widest leading-tight">Estado de Caja<br/><span className={formPagoInmediato ? "text-green-400 text-[8px] tracking-[0.2em]" : "text-zinc-500 text-[8px] tracking-[0.2em]"}>{formPagoInmediato ? "Pagó inscripción hoy" : "Entra con Deuda"}</span></span>
+                            </div>
+                        </div>
+
+                        <div className="text-left bg-black/20 p-6 rounded-[2rem] border border-white/5">
+                            <div className="flex justify-between items-end mb-2">
+                                <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block ml-1">Grupo Familiar (Para unificar cobros)</label>
+                                {gruposExistentes.length > 0 && (
+                                    <select 
+                                        className="bg-zinc-900 border border-cyan-500/30 text-cyan-400 text-[9px] font-black uppercase rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-zinc-800 transition-colors"
+                                        onChange={(e) => { if(e.target.value) setFormGrupoFamiliar(e.target.value); }}
+                                        value=""
+                                    >
+                                        <option value="">+ Elegir Existente...</option>
+                                        {gruposExistentes.map((g: any) => <option key={g} value={g}>{g}</option>)}
+                                    </select>
+                                )}
+                            </div>
+                            <input 
+                                type="text" 
+                                value={formGrupoFamiliar} 
+                                onChange={e => setFormGrupoFamiliar(e.target.value)} 
+                                className="w-full bg-zinc-950/50 border border-cyan-500/30 text-cyan-400 text-xs uppercase font-bold px-5 py-4 rounded-xl outline-none focus:border-cyan-400 placeholder:text-cyan-900/50 transition-all" 
+                                placeholder="Escribe uno nuevo o elige de la lista 👆" 
+                            />
+                        </div>
+                    </div>
+
+                    <button onClick={inscribirGimnasta} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black py-5 rounded-[1.5rem] uppercase tracking-[0.3em] text-[10px] shadow-[0_10px_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-95 transition-all mt-6">REGISTRAR INSCRIPCIÓN</button>
                 </div>
-
-                <div className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 group ${formPagoInmediato ? 'bg-green-900/20 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.15)]' : 'bg-black/20 border-white/5 hover:border-white/10'}`} onClick={() => setFormPagoInmediato(!formPagoInmediato)}>
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${formPagoInmediato ? 'bg-green-600 text-white shadow-inner' : 'bg-zinc-800 text-zinc-600 group-hover:text-zinc-400'}`}>{formPagoInmediato ? <Check size={16} strokeWidth={4}/> : <HelpCircle size={16}/>}</div>
-                    <span className="text-[10px] font-black uppercase text-white tracking-widest leading-tight">Estado de Caja<br/><span className={formPagoInmediato ? "text-green-400 text-[8px] tracking-[0.2em]" : "text-zinc-500 text-[8px] tracking-[0.2em]"}>{formPagoInmediato ? "Pagó inscripción hoy" : "Entra con Deuda"}</span></span>
-                </div>
             </div>
-
-            {/* GRUPO FAMILIAR INTELIGENTE (FUERA DE LOS BOTONES) */}
-            <div className="text-left bg-black/20 p-6 rounded-[2rem] border border-white/5">
-                <div className="flex justify-between items-end mb-2">
-                    <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block ml-1">Grupo Familiar (Para unificar cobros)</label>
-                    {gruposExistentes.length > 0 && (
-                        <select 
-                            className="bg-zinc-900 border border-cyan-500/30 text-cyan-400 text-[9px] font-black uppercase rounded-lg px-2 py-1 outline-none cursor-pointer hover:bg-zinc-800 transition-colors"
-                            onChange={(e) => { if(e.target.value) setFormGrupoFamiliar(e.target.value); }}
-                            value=""
-                        >
-                            <option value="">+ Elegir Existente...</option>
-                            {gruposExistentes.map((g: any) => <option key={g} value={g}>{g}</option>)}
-                        </select>
-                    )}
-                </div>
-                <input 
-                    type="text" 
-                    value={formGrupoFamiliar} 
-                    onChange={e => setFormGrupoFamiliar(e.target.value)} 
-                    className="w-full bg-zinc-950/50 border border-cyan-500/30 text-cyan-400 text-xs uppercase font-bold px-5 py-4 rounded-xl outline-none focus:border-cyan-400 placeholder:text-cyan-900/50 transition-all" 
-                    placeholder="Escribe uno nuevo o elige de la lista 👆" 
-                />
-            </div>
-        </div>
-
-        <button onClick={inscribirGimnasta} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black py-5 rounded-[1.5rem] uppercase tracking-[0.3em] text-[10px] shadow-[0_10px_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-95 transition-all mt-6">REGISTAR INSCRIPCION</button>
-    </div>
-)}
+        )}
 
         {/* GASTOS Y CAJA */}
         {vistaActual === 'gastos' && (
@@ -1349,9 +1392,11 @@ Agradecemos su gestión para ponerse al día.`;
                             </div>
                             
                             <InputStyled label="Nombre" value={editNombre} onChange={(e: any) => setEditNombre(e.target.value)} />
-                            <InputStyled label="Teléfono" value={editTelefono} onChange={(e: any) => setEditTelefono(e.target.value)} /> 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                <InputStyled label="Teléfono" value={editTelefono} onChange={(e: any) => setEditTelefono(e.target.value)} /> 
+                                <InputStyled label="Fecha de Nacimiento" type="date" value={editFechaNacimiento} onChange={(e: any) => setEditFechaNacimiento(e.target.value)} />
+                            </div>
                             
-                            {/* TOGGLE DE DESCUENTO Y GRUPO FAMILIAR (SEPARADOS) */}
                             <div className="flex items-center gap-3 bg-zinc-950/50 p-4 rounded-xl border border-white/5 mb-2 mt-4">
                                 <input type="checkbox" id="editEsHermana" checked={editEsHermana} onChange={(e) => setEditEsHermana(e.target.checked)} className="w-5 h-5 accent-cyan-500 cursor-pointer rounded-sm" />
                                 <label htmlFor="editEsHermana" className="text-[10px] font-black text-cyan-400 uppercase tracking-widest cursor-pointer">Activar Descuento 50% (Solo para 2da hermana)</label>
@@ -1413,7 +1458,6 @@ Agradecemos su gestión para ponerse al día.`;
                                                     <p className="text-red-300 text-[10px] uppercase font-bold tracking-widest mb-4">{mora.nombres.join(", ")}</p>
                                                     <div className="bg-black/40 p-4 rounded-xl mb-4 text-center border border-white/5 flex justify-between items-center"><span className="text-[9px] text-zinc-500 uppercase font-black tracking-widest">Saldo Pendiente </span><span className="text-xl font-black text-red-400">${mora.deudaTotal.toLocaleString()}</span></div>
                                                     
-                                                    {/* BOTÓN INTELIGENTE CONECTADO */}
                                                     <button onClick={() => enviarRecordatorioMora(perfilSeleccionado, mora)} className="w-full py-4 bg-green-600 rounded-xl text-white font-black uppercase text-[10px] tracking-widest shadow-[0_5px_15px_rgba(34,197,94,0.3)] flex items-center justify-center gap-2 hover:bg-green-500 transition-colors hover:scale-[1.02] active:scale-95"><AlertCircle size={14}/> Enviar recordatorio </button>
                                                 </div>
                                             );
@@ -1502,7 +1546,6 @@ Agradecemos su gestión para ponerse al día.`;
                     
                     <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-1"><DollarSign size={20} className="inline mr-1 text-emerald-400"/> Caja de Recaudo</h3>
                     
-                    {/* INFO DEUDA TOTAL Y ALUMNA */}
                     <div className="flex items-center justify-between border-b border-white/5 pb-5 mb-5 mt-4">
                         <div>
                             <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.2em]">{modalCobroMultiple.gimnasta.nombre}</p>
@@ -1516,13 +1559,10 @@ Agradecemos su gestión para ponerse al día.`;
                         </div>
                     </div>
 
-                    {/* BOTONES DE SELECCIÓN RÁPIDA DINÁMICOS */}
                     <p className="text-[9px] text-zinc-400 font-black uppercase tracking-[0.3em] mb-3">Autocompletar valor</p>
                     <div className="flex flex-wrap gap-3 mb-6">
-                        {/* 1. Dibujamos todos los botones MENOS el último mes */}
                         {Array.from({ length: Math.max(0, modalCobroMultiple.mora.meses - 1) }).map((_, i) => {
                             const mesesAbono = i + 1;
-
                             return (
                                 <button 
                                     key={mesesAbono}
@@ -1534,7 +1574,6 @@ Agradecemos su gestión para ponerse al día.`;
                             );
                         })}
                         
-                        {/* 2. Si NO debe nada (o paga adelantado), mostramos "1 Mes". Si debe, mostramos "Pagar Todo" */}
                         <button 
                             onClick={() => setModalCobroMultiple({...modalCobroMultiple, montoAbono: modalCobroMultiple.mora.deudaTotal > 0 ? modalCobroMultiple.mora.deudaTotal.toString() : modalCobroMultiple.mora.precioIndividual.toString()})} 
                             className="flex-[2] min-w-[100px] bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
@@ -1543,7 +1582,6 @@ Agradecemos su gestión para ponerse al día.`;
                         </button>
                     </div>
                     
-                    {/* CAJÓN DE ENTRADA MANUAL */}
                     <div className="bg-black/30 rounded-[2rem] p-6 border border-white/5 mb-8 text-center shadow-inner relative">
                         <p className="text-[9px] text-zinc-400 font-black uppercase tracking-[0.3em] mb-4">Monto Exacto a Recibir</p>
                         

@@ -1,4 +1,4 @@
-import { Activity, Users, DollarSign, TrendingUp, CheckCircle2, User, ArrowRight } from "lucide-react";
+import { Activity, Users, DollarSign, TrendingUp, CheckCircle2, User, ArrowRight, Cake } from "lucide-react";
 
 // Traemos tu componente CardDato para que viva junto al Dashboard
 const CardDato = ({ titulo, valor, color, icono, onClick }: any) => (
@@ -80,12 +80,12 @@ export default function Dashboard({
                               <div key={d.id} className="flex justify-between items-center bg-red-500/5 p-4 rounded-2xl border border-red-500/20 hover:bg-red-500/10 transition-colors group">
                                   <div className="flex items-center gap-4">
                                       <div className="w-10 h-10 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center text-sm font-black shadow-inner shadow-red-500/20 overflow-hidden shrink-0">
-    {d.foto_url ? (
-        <img src={d.foto_url} alt={d.nombre} className="w-full h-full object-cover" />
-    ) : (
-        <User size={16}/>
-    )}
-</div>
+                                          {d.foto_url ? (
+                                              <img src={d.foto_url} alt={d.nombre} className="w-full h-full object-cover" />
+                                          ) : (
+                                              <User size={16}/>
+                                          )}
+                                      </div>
                                       <span className="text-xs font-bold text-white uppercase tracking-wider">{d.nombre}</span>
                                   </div>
                                   <span className="text-xs font-black text-red-400 bg-red-950/80 px-4 py-2 rounded-xl border border-red-500/20">${(d.es_hermana ? (d.paquetes?.precio||0)/2 : (d.paquetes?.precio||0)).toLocaleString()}</span>
@@ -96,6 +96,54 @@ export default function Dashboard({
               </div>
           </div>
       </div>
+
+      {/* WIDGET DE CUMPLEAÑOS (NUEVO) */}
+      <div className="mt-10 animate-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-400 border border-pink-500/20">
+                  <Cake size={20} />
+              </div>
+              <h2 className="text-xl font-black uppercase tracking-tighter text-white">Cumpleaños de {mesReporteDashboard}</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {estudiantes.filter((e: any) => {
+                  if (!e.fecha_nacimiento) return false;
+                  const [, mesNac] = e.fecha_nacimiento.split('-');
+                  return parseInt(mesNac) === (nombresMeses.indexOf(mesReporteDashboard) + 1);
+              }).length > 0 ? (
+                  estudiantes.filter((e: any) => {
+                      if (!e.fecha_nacimiento) return false;
+                      const [, mesNac] = e.fecha_nacimiento.split('-');
+                      return parseInt(mesNac) === (nombresMeses.indexOf(mesReporteDashboard) + 1);
+                  }).sort((a: any, b: any) => {
+                      const diaA = parseInt(a.fecha_nacimiento.split('-')[2]);
+                      const diaB = parseInt(b.fecha_nacimiento.split('-')[2]);
+                      return diaA - diaB;
+                  }).map((g: any) => {
+                      const [, , diaNac] = g.fecha_nacimiento.split('-');
+                      return (
+                          <div key={g.id} className="bg-zinc-900/40 backdrop-blur-md p-4 rounded-3xl border border-white/5 flex items-center gap-4 group hover:bg-white/5 transition-all text-left">
+                              <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex flex-col items-center justify-center text-zinc-400 group-hover:bg-pink-500/20 group-hover:text-pink-400 transition-colors">
+                                  <span className="text-[10px] font-black uppercase tracking-widest">{mesReporteDashboard.substring(0,3)}</span>
+                                  <span className="text-lg font-black leading-none">{diaNac}</span>
+                              </div>
+                              <div>
+                                  <p className="text-xs font-black uppercase text-white truncate">{g.nombre.split(' ')[0]} {g.nombre.split(' ')[1] || ''}</p>
+                                  <p className="text-[8px] text-zinc-500 font-black uppercase tracking-widest mt-1 group-hover:text-pink-200/50 transition-colors">Gimnasta Elite</p>
+                              </div>
+                          </div>
+                      );
+                  })
+              ) : (
+                  <div className="col-span-full py-10 text-center border border-dashed border-white/10 rounded-[2rem] bg-white/5">
+                      <Cake size={32} className="mx-auto mb-3 text-pink-500 opacity-20" />
+                      <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">Sin cumpleaños registrados en {mesReporteDashboard}</p>
+                  </div>
+              )}
+          </div>
+      </div>
+      
     </div>
   );
 }

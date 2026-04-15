@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from '@supabase/supabase-js';
 import { 
     Lock, User, LogOut, CheckCircle2, AlertCircle, 
-    Medal, CalendarDays, Wallet, MessageSquare, Bell, ChevronLeft, TrendingUp, Send, RefreshCw, X, Upload
+    Medal, CalendarDays, Wallet, MessageSquare, Bell, ChevronLeft, TrendingUp, Send, RefreshCw, X, Upload, Clock
 } from "lucide-react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -32,10 +32,11 @@ export default function PortalPadres() {
     const [confirmarClave, setConfirmarClave] = useState("");
     const [gimnastaTemporal, setGimnastaTemporal] = useState<any>(null);
 
-    // NUEVOS ESTADOS PARA PAGOS Y ALERTAS
+    // NUEVOS ESTADOS PARA PAGOS Y HISTORIAL
     const [alertaSeguridad, setAlertaSeguridad] = useState<{msg: string, tipo: 'error' | 'exito'} | null>(null);
     const [archivoPago, setArchivoPago] = useState<File | null>(null);
     const [subiendoPago, setSubiendoPago] = useState(false);
+    const [comprobantesHistorial, setComprobantesHistorial] = useState<any[]>([]);
 
     const [vistaPadre, setVistaPadre] = useState<'inicio' | 'finanzas' | 'asistencia' | 'torneos' | 'mensajes'>('inicio');
 
@@ -107,7 +108,6 @@ export default function PortalPadres() {
         setSubiendoPago(true);
 
         try {
-            // 1. Subir imagen a Storage
             const fileExt = archivoPago.name.split('.').pop();
             const fileName = `${Date.now()}_${gimnasta.id}.${fileExt}`;
             
@@ -119,7 +119,6 @@ export default function PortalPadres() {
 
             const { data: urlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
 
-            // 2. Registrar en la tabla de revisión
             const { error: dbError } = await supabase.from('comprobantes_revision').insert([{
                 gimnasta_id: gimnasta.id,
                 url_comprobante: urlData.publicUrl,
@@ -131,6 +130,8 @@ export default function PortalPadres() {
 
             setAlertaSeguridad({ msg: "Comprobante enviado con éxito. Dirección validará tu pago pronto.", tipo: 'exito' });
             setArchivoPago(null);
+            // Refrescar historial inmediatamente
+            await refrescarDatosSilencioso(gimnasta.id);
         } catch (error) {
             console.error(error);
             setAlertaSeguridad({ msg: "Error al enviar el comprobante. Intenta de nuevo.", tipo: 'error' });
@@ -145,6 +146,10 @@ export default function PortalPadres() {
 
         const { data: res } = await supabase.from('resultados_usag').select('*, competencias(nombre, fecha)').eq('gimnasta_id', idGimnasta).order('created_at', { ascending: false });
         if (res) setResultados(res);
+
+        // Cargar historial de comprobantes
+        const { data: comp } = await supabase.from('comprobantes_revision').select('*').eq('gimnasta_id', idGimnasta).order('created_at', { ascending: false });
+        if (comp) setComprobantesHistorial(comp);
 
         await cargarMensajesManual(idGimnasta);
     };
@@ -483,6 +488,44 @@ export default function PortalPadres() {
                                         )}
                                     </button>
                                 </div>
+
+                                {/* --- HISTORIAL DE COMPROBANTES --- */}
+                                {comprobantesHistorial.length > 0 && (
+                                    <div className="mt-12 space-y-4 animate-in fade-in duration-700">
+                                        <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] ml-2 mb-4 flex items-center gap-2">
+                                            <Clock size={12}/> Historial de Reportes
+                                        </h3>
+                                        <div className="space-y-3">
+                                            {comprobantesHistorial.map((c) => (
+                                                <div key={c.id} className="bg-black/30 p-4 rounded-2xl border border-white/5 flex items-center justify-between group hover:bg-black/50 transition-colors">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-xl bg-zinc-800 overflow-hidden border border-white/5 shrink-0">
+                                                            <img 
+                                                                src={c.url_comprobante} 
+                                                                className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity cursor-pointer shadow-inner" 
+                                                                onClick={() => window.open(c.url_comprobante, '_blank')} 
+                                                                title="Ver comprobante"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-[10px] font-black text-white uppercase mb-0.5">Reportado: {new Date(c.created_at).toLocaleDateString()}</p>
+                                                            <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Monto: ${c.monto.toLocaleString()}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest border flex items-center gap-1.5 ${
+                                                        c.estado === 'pendiente' ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' :
+                                                        c.estado === 'aprobado' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                                                        'bg-red-500/10 text-red-500 border-red-500/20'
+                                                    }`}>
+                                                        {c.estado === 'pendiente' && <Clock size={10} className="animate-pulse"/>}
+                                                        {c.estado === 'aprobado' && <CheckCircle2 size={10}/>}
+                                                        {c.estado === 'pendiente' ? 'En Verificación' : c.estado === 'aprobado' ? 'Validado OK' : 'Rechazado'}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -490,7 +533,6 @@ export default function PortalPadres() {
                     {/* --- RESTO DE LAS VISTAS IGUAL --- */}
                     {vistaPadre === 'asistencia' && (
                         <div className="animate-in slide-in-from-right-8 duration-500 space-y-8">
-                            {/* ... Contenido de asistencia igual al anterior ... */}
                             <div className="bg-zinc-900/80 p-8 rounded-[3rem] border border-white/10 shadow-xl">
                                 <div className="flex justify-between items-end mb-6">
                                     <div>
