@@ -1,6 +1,9 @@
+"use client";
+import { useState } from "react";
 import { Activity, Users, DollarSign, TrendingUp, CheckCircle2, User, ArrowRight, Cake } from "lucide-react";
 
-// Traemos tu componente CardDato para que viva junto al Dashboard
+const nombresMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
 const CardDato = ({ titulo, valor, color, icono, onClick }: any) => (
   <div onClick={onClick} className={`bg-zinc-900/40 backdrop-blur-2xl p-6 rounded-[2rem] border border-white/5 relative overflow-hidden shadow-2xl text-left group transition-all duration-500 hover:-translate-y-2 hover:shadow-cyan-900/20 hover:border-cyan-500/30 hover:bg-zinc-800/60 ${onClick ? 'cursor-pointer active:scale-95' : ''}`}>
       <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-125 group-hover:opacity-10 transition-all duration-500 rotate-12 text-zinc-100 [&>svg]:w-32 [&>svg]:h-32">{icono}</div>
@@ -11,19 +14,57 @@ const CardDato = ({ titulo, valor, color, icono, onClick }: any) => (
 );
 
 export default function Dashboard({ 
-  estudiantes, 
-  balanceReal, 
-  calcularDeudaTotalDashboard, 
-  proyeccionMensual,
-  setFiltroDeudores,
-  setVistaActual,
-  mesReporteDashboard,
-  setMesReporteDashboard,
-  nombresMeses,
-  ingresosMesSeleccionado,
-  deudorasMesSeleccionado
+  estudiantes = [], 
+  pagos = [], 
+  gastosVarios = [], 
+  ingresosExtra = [], 
+  pagosProfes = [], 
+  setVistaActual, 
+  setFiltroDeudores 
 }: any) {
   
+  const [mesReporteDashboard, setMesReporteDashboard] = useState(nombresMeses[new Date().getMonth()]);
+  const mesIndex = nombresMeses.indexOf(mesReporteDashboard);
+
+  // 1. Cálculos Globales
+  const ingresosTotales = pagos.reduce((acc: any, p: any) => acc + p.monto, 0) + ingresosExtra.reduce((acc: any, i: any) => acc + i.monto, 0);
+  const egresosTotales = gastosVarios.reduce((acc: any, g: any) => acc + g.monto, 0) + pagosProfes.reduce((acc: any, p: any) => acc + p.monto, 0);
+  const balanceReal = ingresosTotales - egresosTotales;
+
+  const proyeccionMensual = estudiantes.reduce((acc: any, e: any) => {
+      let precio = e.paquetes?.precio || 0;
+      if (e.es_hermana) precio = precio / 2;
+      return acc + precio;
+  }, 0);
+
+  const calcularMora = (gimnasta: any) => {
+      const hoy = new Date();
+      const venc = new Date(gimnasta.proximo_vencimiento);
+      if (venc >= hoy) return { meses: 0, nombres: [], deudaTotal: 0, precioIndividual: 0 };
+      
+      let mesesMora: string[] = [];
+      let temp = new Date(venc);
+      let mesIdx = temp.getMonth();
+      
+      while (temp < hoy) {
+          mesesMora.push(nombresMeses[mesIdx % 12]);
+          mesIdx++;
+          temp.setDate(temp.getDate() + 30);
+      }
+      
+      let precioPlan = gimnasta.paquetes?.precio || 0;
+      if (gimnasta.es_hermana) precioPlan = precioPlan / 2;
+      return { meses: mesesMora.length, nombres: mesesMora, deudaTotal: mesesMora.length * precioPlan, precioIndividual: precioPlan };
+  };
+
+  const deudaAcumulada = estudiantes.reduce((acc: any, e: any) => acc + calcularMora(e).deudaTotal, 0);
+
+  // 2. Cálculos Específicos del Mes Seleccionado
+  const ingresosMesSeleccionado = pagos.filter((p:any) => new Date(p.created_at).getMonth() === mesIndex).reduce((acc:any, p:any) => acc + p.monto, 0) + 
+                                  ingresosExtra.filter((i:any) => new Date(i.created_at).getMonth() === mesIndex).reduce((acc:any, i:any) => acc + i.monto, 0);
+
+  const deudorasMesSeleccionado = estudiantes.filter((e: any) => calcularMora(e).nombres.includes(mesReporteDashboard));
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 text-left">
       <div className="flex items-center gap-4 mb-8">
@@ -37,7 +78,7 @@ export default function Dashboard({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
           <CardDato titulo="Gimnastas Activas" valor={estudiantes.length} color="text-white" icono={<Users />} />
           <CardDato titulo="Caja Real (Operativa)" valor={`$${balanceReal.toLocaleString()}`} color={balanceReal >= 0 ? 'text-emerald-400' : 'text-red-400'} icono={<DollarSign />} />
-          <CardDato onClick={() => {setFiltroDeudores(true); setVistaActual('directorio')}} titulo="Deuda Acumulada" valor={`$${calcularDeudaTotalDashboard().toLocaleString()}`} color="text-rose-500" icono={<TrendingUp />} />
+          <CardDato onClick={() => {setFiltroDeudores(true); setVistaActual('directorio')}} titulo="Deuda Acumulada" valor={`$${deudaAcumulada.toLocaleString()}`} color="text-rose-500" icono={<TrendingUp />} />
           <CardDato titulo="Ingreso Proyectado" valor={`$${proyeccionMensual.toLocaleString()}`} color="text-cyan-400" icono={<CheckCircle2 />} />
       </div>
 
@@ -97,7 +138,7 @@ export default function Dashboard({
           </div>
       </div>
 
-      {/* WIDGET DE CUMPLEAÑOS (NUEVO) */}
+      {/* WIDGET DE CUMPLEAÑOS */}
       <div className="mt-10 animate-in slide-in-from-bottom-4">
           <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-400 border border-pink-500/20">
@@ -110,12 +151,12 @@ export default function Dashboard({
               {estudiantes.filter((e: any) => {
                   if (!e.fecha_nacimiento) return false;
                   const [, mesNac] = e.fecha_nacimiento.split('-');
-                  return parseInt(mesNac) === (nombresMeses.indexOf(mesReporteDashboard) + 1);
+                  return parseInt(mesNac) === (mesIndex + 1);
               }).length > 0 ? (
                   estudiantes.filter((e: any) => {
                       if (!e.fecha_nacimiento) return false;
                       const [, mesNac] = e.fecha_nacimiento.split('-');
-                      return parseInt(mesNac) === (nombresMeses.indexOf(mesReporteDashboard) + 1);
+                      return parseInt(mesNac) === (mesIndex + 1);
                   }).sort((a: any, b: any) => {
                       const diaA = parseInt(a.fecha_nacimiento.split('-')[2]);
                       const diaB = parseInt(b.fecha_nacimiento.split('-')[2]);

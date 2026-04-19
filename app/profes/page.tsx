@@ -2,8 +2,8 @@
 import { useState, useEffect } from "react";
 import { createClient } from '@supabase/supabase-js';
 import { UserCheck, Lock, LogOut, CheckCircle2, ChevronRight, CalendarCheck, Trophy, Key, DollarSign, Activity, FileText } from "lucide-react";
+import CompetenciasModulo from "../admin/components/CompetenciasModulo";
 
-import CompetenciasModulo from "@/app/admin/Competencias"; 
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;

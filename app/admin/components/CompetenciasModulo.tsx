@@ -7,7 +7,15 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-export default function CompetenciasModulo({ estudiantes, esAdmin, puedenCalificar = false }: { estudiantes: any[], esAdmin: boolean, puedenCalificar?: boolean }) {
+export default function CompetenciasModulo({ 
+    estudiantes, 
+    esAdmin, 
+    puedenCalificar = false 
+}: { 
+    estudiantes: any[], 
+    esAdmin: boolean, 
+    puedenCalificar?: boolean 
+}) {
     const [vista, setVista] = useState<'lista' | 'gestion'>('lista');
     const [compSeleccionada, setCompSeleccionada] = useState<any>(null);
     const [competencias, setCompetencias] = useState<any[]>([]);
@@ -44,7 +52,6 @@ export default function CompetenciasModulo({ estudiantes, esAdmin, puedenCalific
         }
     }, [nivelFiltro]);
 
-    // ⚡ REALTIME SINCRO - No tocar, esto hace que funcione en simultáneo
     useEffect(() => {
         cargarCompetencias();
         const channel = supabase.channel('realtime-elite')
@@ -135,7 +142,6 @@ export default function CompetenciasModulo({ estudiantes, esAdmin, puedenCalific
         const top4 = resultados.filter(r => r.nivel === nivelFiltro).slice(0, 4);
         if (top4.length === 0) return null;
         
-        // Orden visual de tarima: 2°, 1°, 3°, 4°
         const podioVisual = [top4[1] || null, top4[0] || null, top4[2] || null, top4[3] || null];
 
         return (
@@ -144,10 +150,10 @@ export default function CompetenciasModulo({ estudiantes, esAdmin, puedenCalific
                     if (!gimnasta) return <div key={`empty-${index}`} className="flex-1 max-w-[120px]"></div>;
                     
                     let color, altura, lugar, premio;
-                    if (index === 1) { color = "from-yellow-400 to-yellow-600"; altura = "h-48"; lugar = "1°"; premio = "🥇"; } // 1ero (Centro)
-                    else if (index === 0) { color = "from-zinc-300 to-zinc-400"; altura = "h-36"; lugar = "2°"; premio = "🥈"; } // 2do (Izq)
-                    else if (index === 2) { color = "from-orange-500 to-orange-700"; altura = "h-28"; lugar = "3°"; premio = "🥉"; } // 3ero (Der)
-                    else { color = "from-gray-400 to-gray-500"; altura = "h-20"; lugar = "4°"; premio = "🎖️"; } // 4to (Extremo Der) Gris Claro
+                    if (index === 1) { color = "from-yellow-400 to-yellow-600"; altura = "h-48"; lugar = "1°"; premio = "🥇"; }
+                    else if (index === 0) { color = "from-zinc-300 to-zinc-400"; altura = "h-36"; lugar = "2°"; premio = "🥈"; }
+                    else if (index === 2) { color = "from-orange-500 to-orange-700"; altura = "h-28"; lugar = "3°"; premio = "🥉"; }
+                    else { color = "from-gray-400 to-gray-500"; altura = "h-20"; lugar = "4°"; premio = "🎖️"; }
 
                     return (
                         <div key={gimnasta.id} className="flex-1 max-w-[140px] flex flex-col items-center animate-in slide-in-from-bottom-10 duration-700">
@@ -191,7 +197,6 @@ export default function CompetenciasModulo({ estudiantes, esAdmin, puedenCalific
                         {esAdmin && <button onClick={() => setMostrarModalNueva(true)} className="bg-yellow-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all shadow-xl shadow-yellow-900/20">+ CREAR COMPETENCIA</button>}
                     </div>
 
-                    {/* MENSAJE DE ESTADO VACÍO (Integrado de nuevo) */}
                     {torneosAMostrar.length === 0 && (
                         <div className="py-24 flex flex-col items-center justify-center bg-zinc-900/40 rounded-[3.5rem] border border-dashed border-white/10 animate-in zoom-in duration-700">
                             <div className="w-24 h-24 bg-zinc-800/50 rounded-[2rem] flex items-center justify-center mb-8 border border-white/5 shadow-inner">
@@ -259,11 +264,9 @@ export default function CompetenciasModulo({ estudiantes, esAdmin, puedenCalific
                             ))}
                         </div>
 
-                        {/* LLAMADA AL PODIO VISUAL */}
                         {renderPodio()}
 
                         <div className="mt-6">
-                            {/* VISTA MÓVIL */}
                             <div className="grid grid-cols-1 gap-4 lg:hidden">
                                 {resultados.filter(r => r.nivel === nivelFiltro).map((r, i) => (
                                     <div key={r.id} className="bg-zinc-900/80 border border-white/10 p-8 rounded-[2.5rem] space-y-6 text-left">
@@ -288,7 +291,6 @@ export default function CompetenciasModulo({ estudiantes, esAdmin, puedenCalific
                                 ))}
                             </div>
 
-                            {/* VISTA PC */}
                             <div className="hidden lg:block overflow-hidden rounded-[2.5rem]">
                                 <table className="w-full border-separate border-spacing-y-4 text-left">
                                     <thead>
@@ -331,7 +333,6 @@ export default function CompetenciasModulo({ estudiantes, esAdmin, puedenCalific
                 </div>
             )}
 
-            {/* MODALES */}
             {mostrarModalNueva && esAdmin && (
                 <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-6 z-[100] backdrop-blur-2xl text-left">
                     <div className="bg-zinc-900 w-full max-w-md rounded-[3rem] p-12 border border-white/10 shadow-2xl">
@@ -354,7 +355,7 @@ export default function CompetenciasModulo({ estudiantes, esAdmin, puedenCalific
                         <div className="space-y-6">
                             <select value={formGimnastaId} onChange={e => setFormGimnastaId(e.target.value)} className="w-full bg-zinc-950 p-5 rounded-2xl border border-white/10 text-white font-bold uppercase text-[11px] outline-none">
                                 <option value="">NIÑA...</option>
-                                {estudiantes.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                                {estudiantes.map((e: any) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                             </select>
                             <select value={formNivel} onChange={e => setFormNivel(e.target.value)} className="w-full bg-zinc-950 p-5 rounded-2xl border border-white/10 text-white font-bold uppercase text-[11px] outline-none">
                                 {nivelesUSAG.map(n => <option key={n} value={n}>{n}</option>)}
