@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from '@supabase/supabase-js';
-import { UserPlus, Camera, Check, MinusCircle, HelpCircle, Cake, CalendarDays, Gift } from "lucide-react";
+import { UserPlus, Camera, Check, MinusCircle, HelpCircle, Cake, CalendarDays, Gift, DollarSign, AlertCircle, Zap } from "lucide-react";
 
 // --- CONEXIÓN DIRECTA ---
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -29,7 +29,7 @@ interface InscripcionesProps {
     paquetes: any[];
     listaProfesores: any[];
     gruposExistentes: string[];
-    estudiantes: any[]; // <--- NUEVO: Necesario para leer los cumpleaños
+    estudiantes: any[]; 
     setModalAlerta: (alerta: { titulo: string, mensaje: string, tipo: 'exito'|'error' } | null) => void;
     cargarTodo: () => void;
     setVistaActual: (vista: string) => void;
@@ -39,7 +39,7 @@ export default function InscripcionesModulo({
     paquetes, 
     listaProfesores, 
     gruposExistentes, 
-    estudiantes, // <--- NUEVO
+    estudiantes, 
     setModalAlerta, 
     cargarTodo, 
     setVistaActual 
@@ -49,20 +49,38 @@ export default function InscripcionesModulo({
     const [formNombre, setFormNombre] = useState("");
     const [formTelefono, setFormTelefono] = useState("57");
     const [formClave, setFormClave] = useState("");
-    const [formFechaNacimiento, setFormFechaNacimiento] = useState(""); // <--- NUEVO ESTADO
+    const [formFechaNacimiento, setFormFechaNacimiento] = useState(""); 
     const [formPaqueteId, setFormPaqueteId] = useState("");
     const [formDias, setFormDias] = useState<string[]>([]);
-    const [formProfesor, setFormProfesor] = useState(listaProfesores.length > 0 ? listaProfesores[0].nombre : ""); 
-    const [formPagoInmediato, setFormPagoInmediato] = useState(true);
+    const [formProfesor, setFormProfesor] = useState(""); 
     const [formEsHermana, setFormEsHermana] = useState(false);
     const [formFechaManual, setFormFechaManual] = useState(obtenerFechaColombia());
     const [formFoto, setFormFoto] = useState<File | null>(null);
     const [formFotoPreview, setFormFotoPreview] = useState<string | null>(null);
     const [formGrupoFamiliar, setFormGrupoFamiliar] = useState("");
 
+    // --- NUEVOS ESTADOS DE RECAUDO (FINANZAS) ---
+    const [pagoInscripcion, setPagoInscripcion] = useState("");
+    const [pagoMensualidad, setPagoMensualidad] = useState("");
+
+    // --- CONSTANTE DE MATRÍCULA ---
+    const VALOR_MATRICULA_ESTANDAR = 50000; // <--- Cambia este 50000 por el valor real de tu matrícula
+
+    // Autoseleccionar primer paquete y profe por defecto al cargar
+    useEffect(() => {
+        if (paquetes.length > 0 && !formPaqueteId) setFormPaqueteId(paquetes[0].id.toString());
+        if (listaProfesores.length > 0 && !formProfesor) setFormProfesor(listaProfesores[0].nombre);
+    }, [paquetes, listaProfesores]);
+
     const toggleDia = (dia: string) => {
         if (formDias.includes(dia)) setFormDias(formDias.filter(d => d !== dia));
         else setFormDias([...formDias, dia]);
+    };
+
+    const generarClave = () => {
+        if (!formNombre) return;
+        const primerNombre = formNombre.split(" ")[0].toLowerCase();
+        setFormClave(`${primerNombre}123`);
     };
 
     // 📸 FUNCIÓN PARA SUBIR FOTO
@@ -84,12 +102,15 @@ export default function InscripcionesModulo({
     };
 
     const inscribirGimnasta = async () => {
-        // Validación actualizada para exigir fecha de nacimiento
         if (!formNombre || !formPaqueteId || !formClave || !formFechaNacimiento) {
             return setModalAlerta({ titulo: "Faltan Datos", mensaje: "Nombre, plan, clave y fecha de nacimiento son obligatorios.", tipo: "error" });
         }
+
+        const valInscripcion = Number(pagoInscripcion) || 0;
+        const valMensualidad = Number(pagoMensualidad) || 0;
+        const montoTotal = valInscripcion + valMensualidad;
         
-        setModalAlerta({ titulo: "Procesando...", mensaje: "Guardando ficha técnica y subiendo foto...", tipo: "exito" });
+        setModalAlerta({ titulo: "Procesando...", mensaje: "Guardando ficha técnica y procesando recaudo...", tipo: "exito" });
 
         let urlFotoGuardada = null;
         if (formFoto) {
@@ -97,22 +118,27 @@ export default function InscripcionesModulo({
         }
 
         const fechaBase = new Date(formFechaManual); 
-        const vencimiento = new Date(fechaBase);
-        if (formPagoInmediato) vencimiento.setDate(fechaBase.getDate() + 30); else vencimiento.setDate(fechaBase.getDate() - 1);
+        const precioFull = paquetes.find(p => p.id.toString() === formPaqueteId.toString())?.precio || 0;
+        const precioIndividual = formEsHermana ? (precioFull / 2) : precioFull;
         
-        const precioFull = paquetes.find(p => p.id == formPaqueteId)?.precio || 0;
-        const montoInicial = formEsHermana ? (precioFull / 2) : precioFull;
+        let diasComprados = 0;
+        if (valMensualidad > 0 && precioIndividual > 0) {
+            diasComprados = Math.round((valMensualidad / precioIndividual) * 30);
+        }
+
+        const fechaVencimiento = new Date(fechaBase);
+        fechaVencimiento.setDate(fechaVencimiento.getDate() + diasComprados);
         
-        const { data: nueva, error } = await supabase.from("gimnastas").insert([{ 
+        const { data: nuevaGimnasta, error } = await supabase.from("gimnastas").insert([{ 
             nombre: formNombre, 
             telefono_acudiente: formTelefono, 
             paquete_id: formPaqueteId, 
             dias: formDias, 
             profesor: formProfesor, 
-            estado: formPagoInmediato ? "Activo" : "Pendiente", 
-            proximo_vencimiento: vencimiento.toISOString(), 
+            estado: "Activo", 
+            proximo_vencimiento: fechaVencimiento.toISOString(), 
             created_at: fechaBase.toISOString(),
-            fecha_nacimiento: formFechaNacimiento, // <--- ENVIADO A SUPABASE
+            fecha_nacimiento: formFechaNacimiento, 
             es_hermana: formEsHermana, 
             clave_acceso: formClave, 
             requiere_cambio_clave: true,
@@ -120,21 +146,33 @@ export default function InscripcionesModulo({
             grupo_familiar: formGrupoFamiliar || null 
         }]).select().single();
 
-        if (error) {
+        if (error || !nuevaGimnasta) {
              console.error("Error BD:", error);
              setModalAlerta({ titulo: "Error", mensaje: "Hubo un problema al conectar con la base de datos.", tipo: "error" });
              return;
         }
 
-        if (formPagoInmediato && nueva) {
-          await supabase.from("pagos").insert([{ gimnasta_id: nueva.id, monto: montoInicial, concepto: formEsHermana ? "Inscripción (Desc. Hermana)" : "Inscripción", created_at: fechaBase.toISOString() }]);
+        if (valInscripcion > 0) {
+            await supabase.from("pagos").insert({ gimnasta_id: nuevaGimnasta.id, monto: valInscripcion, concepto: "Inscripción / Matrícula (Ingreso Nuevo)", created_at: fechaBase.toISOString() });
+        }
+        if (valMensualidad > 0) {
+            await supabase.from("pagos").insert({ gimnasta_id: nuevaGimnasta.id, monto: valMensualidad, concepto: formEsHermana ? "Mensualidad Inicial (Hermana)" : "Mensualidad Inicial", created_at: fechaBase.toISOString() });
+        }
+
+        if (formTelefono && formTelefono.length >= 10 && montoTotal > 0) {
+            let numeroLimpio = formTelefono.replace(/\D/g, ''); 
+            if (numeroLimpio.length === 10) numeroLimpio = '57' + numeroLimpio;
+            
+            const mensajeBienvenida = `¡Bienvenida a la familia Elite Gymnastics, *${formNombre}*! 🤸‍♀️🎉\n\nHemos registrado exitosamente tu matrícula. \n\n*Detalle de tu pago inicial:*\n${valInscripcion > 0 ? `• Inscripción: $${valInscripcion.toLocaleString()}\n` : ''}${valMensualidad > 0 ? `• Mensualidad: $${valMensualidad.toLocaleString()}\n` : ''}\n*Total pagado: $${montoTotal.toLocaleString()}*\n\nTu próximo corte de pago quedó para el *${fechaVencimiento.toLocaleDateString()}*. ¡Nos vemos en clase!`;
+            
+            window.open(`https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensajeBienvenida)}`, '_blank');
         }
         
-        setModalAlerta({ titulo: "¡Bienvenida a Elite!", mensaje: "Alumna inscrita con éxito.", tipo: "exito" });
+        setModalAlerta({ titulo: "¡Bienvenida a Elite!", mensaje: "Alumna matriculada y caja actualizada.", tipo: "exito" });
         
-        // Limpiar
         setFormNombre(""); setFormTelefono("57"); setFormClave(""); setFormDias([]); 
         setFormFoto(null); setFormFotoPreview(null); setFormGrupoFamiliar(""); setFormFechaNacimiento("");
+        setPagoInscripcion(""); setPagoMensualidad("");
         
         cargarTodo(); 
         setVistaActual('directorio');
@@ -142,12 +180,11 @@ export default function InscripcionesModulo({
 
     // --- LÓGICA DE CUMPLEAÑOS ---
     const fechaActual = new Date();
-    const mesActual = fechaActual.getMonth() + 1; // 1-12
+    const mesActual = fechaActual.getMonth() + 1;
     const anioActual = fechaActual.getFullYear();
 
     const cumpleanerasMes = estudiantes.filter(e => {
         if (!e.fecha_nacimiento) return false;
-        // Supabase guarda fechas como YYYY-MM-DD
         const [, mesNac] = e.fecha_nacimiento.split('-');
         return parseInt(mesNac) === mesActual;
     }).sort((a, b) => {
@@ -155,6 +192,10 @@ export default function InscripcionesModulo({
         const diaB = parseInt(b.fecha_nacimiento.split('-')[2]);
         return diaA - diaB;
     });
+
+    // Cálculos dinámicos para los botones de autocompletado
+    const precioFullSeleccionado = paquetes.find(p => p.id.toString() === formPaqueteId.toString())?.precio || 0;
+    const precioMensualidadReal = formEsHermana ? (precioFullSeleccionado / 2) : precioFullSeleccionado;
 
     return (
         <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
@@ -230,16 +271,15 @@ export default function InscripcionesModulo({
                         <p className="text-[9px] text-zinc-500 font-black uppercase tracking-widest mt-3">Toca para añadir foto (Opcional)</p>
                     </div>
 
-                    <InputStyled label="Nombre Completo" placeholder="Ej: Isabella Santos..." value={formNombre} onChange={(e: any) => setFormNombre(e.target.value)} />
+                    <InputStyled label="Nombre Completo" placeholder="Ej: Isabella Santos..." value={formNombre} onChange={(e: any) => setFormNombre(e.target.value)} onBlur={generarClave} />
                     
-                    {/* NUEVA FILA: FECHA NACIMIENTO Y TELÉFONO */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <InputStyled label="Teléfono (WhatsApp)" placeholder="Ej: 573001234567" value={formTelefono} onChange={(e: any) => setFormTelefono(e.target.value)} /> 
                         <InputStyled label="Fecha de Nacimiento" type="date" value={formFechaNacimiento} onChange={(e: any) => setFormFechaNacimiento(e.target.value)} />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <InputStyled label="Clave de Seguridad" placeholder="Ej: Doc. Identidad" value={formClave} onChange={(e: any) => setFormClave(e.target.value)} />
+                        <InputStyled label="Clave Portal Papás" placeholder="Ej: valeria123" value={formClave} onChange={(e: any) => setFormClave(e.target.value)} />
                         <InputStyled label="Fecha de Registro Base" type="date" value={formFechaManual} onChange={(e: any) => setFormFechaManual(e.target.value)} />
                     </div>
                 </div>
@@ -247,11 +287,15 @@ export default function InscripcionesModulo({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-left mt-5">
                     <div className="bg-black/20 p-5 rounded-3xl border border-white/5">
                         <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block mb-2 ml-1">Plan Contratado</label>
-                        <select className="bg-zinc-900 p-4 rounded-xl border border-white/10 outline-none text-white w-full text-xs font-bold uppercase focus:border-cyan-500 transition-colors shadow-inner" value={formPaqueteId} onChange={(e: any) => setFormPaqueteId(e.target.value)}><option value="" className="bg-zinc-900">SELECCIONAR PLAN...</option>{paquetes.map(p => <option key={p.id} value={p.id} className="bg-zinc-900">{p.nombre} - $ {p.precio.toLocaleString()}</option>)}</select>
+                        <select className="bg-zinc-900 p-4 rounded-xl border border-white/10 outline-none text-white w-full text-xs font-bold uppercase focus:border-cyan-500 transition-colors shadow-inner" value={formPaqueteId} onChange={(e: any) => setFormPaqueteId(e.target.value)}>
+                            {paquetes.map(p => <option key={p.id} value={p.id} className="bg-zinc-900">{p.nombre} - $ {p.precio.toLocaleString()}</option>)}
+                        </select>
                     </div>
                     <div className="bg-black/20 p-5 rounded-3xl border border-white/5">
                         <label className="text-[9px] font-black text-cyan-500 uppercase tracking-widest block mb-2 ml-1">Profesor Responsable</label>
-                        <select className="bg-zinc-900 p-4 rounded-xl border border-white/10 outline-none text-white w-full text-xs font-bold uppercase focus:border-cyan-500 transition-colors shadow-inner" value={formProfesor} onChange={(e: any) => setFormProfesor(e.target.value)}>{listaProfesores.map(p => <option key={p.id} value={p.nombre} className="bg-zinc-900">{p.nombre}</option>)}</select>
+                        <select className="bg-zinc-900 p-4 rounded-xl border border-white/10 outline-none text-white w-full text-xs font-bold uppercase focus:border-cyan-500 transition-colors shadow-inner" value={formProfesor} onChange={(e: any) => setFormProfesor(e.target.value)}>
+                            {listaProfesores.map(p => <option key={p.id} value={p.nombre} className="bg-zinc-900">{p.nombre}</option>)}
+                        </select>
                     </div>
                 </div>
 
@@ -265,16 +309,9 @@ export default function InscripcionesModulo({
                 </div>
             
                 <div className="space-y-4 mt-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 group ${formEsHermana ? 'bg-purple-900/20 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'bg-black/20 border-white/5 hover:border-white/10'}`} onClick={() => setFormEsHermana(!formEsHermana)}>
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${formEsHermana ? 'bg-purple-600 text-white shadow-inner' : 'bg-zinc-800 text-zinc-600 group-hover:text-zinc-400'}`}>{formEsHermana ? <Check size={16} strokeWidth={4}/> : <MinusCircle size={16}/>}</div>
-                            <span className="text-[10px] font-black uppercase text-white tracking-widest leading-tight">Beca Hermana<br/><span className="text-purple-400 text-[8px] tracking-[0.2em]">-50% Descuento</span></span>
-                        </div>
-
-                        <div className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 group ${formPagoInmediato ? 'bg-green-900/20 border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.15)]' : 'bg-black/20 border-white/5 hover:border-white/10'}`} onClick={() => setFormPagoInmediato(!formPagoInmediato)}>
-                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${formPagoInmediato ? 'bg-green-600 text-white shadow-inner' : 'bg-zinc-800 text-zinc-600 group-hover:text-zinc-400'}`}>{formPagoInmediato ? <Check size={16} strokeWidth={4}/> : <HelpCircle size={16}/>}</div>
-                            <span className="text-[10px] font-black uppercase text-white tracking-widest leading-tight">Estado de Caja<br/><span className={formPagoInmediato ? "text-green-400 text-[8px] tracking-[0.2em]" : "text-zinc-500 text-[8px] tracking-[0.2em]"}>{formPagoInmediato ? "Pagó inscripción hoy" : "Entra con Deuda"}</span></span>
-                        </div>
+                    <div className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer hover:scale-[1.02] active:scale-95 group ${formEsHermana ? 'bg-purple-900/20 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.15)]' : 'bg-black/20 border-white/5 hover:border-white/10'}`} onClick={() => setFormEsHermana(!formEsHermana)}>
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${formEsHermana ? 'bg-purple-600 text-white shadow-inner' : 'bg-zinc-800 text-zinc-600 group-hover:text-zinc-400'}`}>{formEsHermana ? <Check size={16} strokeWidth={4}/> : <MinusCircle size={16}/>}</div>
+                        <span className="text-[10px] font-black uppercase text-white tracking-widest leading-tight">Beca Hermana<br/><span className="text-purple-400 text-[8px] tracking-[0.2em]">-50% Descuento en mensualidad</span></span>
                     </div>
 
                     <div className="text-left bg-black/20 p-6 rounded-[2rem] border border-white/5">
@@ -301,7 +338,46 @@ export default function InscripcionesModulo({
                     </div>
                 </div>
 
-                <button onClick={inscribirGimnasta} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black py-5 rounded-[1.5rem] uppercase tracking-[0.3em] text-[10px] shadow-[0_10px_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-95 transition-all mt-6">REGISTRAR INSCRIPCIÓN</button>
+                {/* BLOQUE DE RECAUDO INICIAL (FINANZAS) */}
+                <div className="bg-emerald-950/20 border border-emerald-500/20 p-6 rounded-[2rem] mt-8 shadow-inner relative text-left">
+                    <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 blur-[50px] rounded-full pointer-events-none"></div>
+                    <h3 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-emerald-500/20 pb-3"><DollarSign size={16}/> Recaudo Inicial de Caja</h3>
+                    
+                    <div className="space-y-6 relative z-10">
+                        {/* CAMPO INSCRIPCIÓN */}
+                        <div>
+                            <div className="flex justify-between items-end mb-2">
+                                <label className="text-[9px] text-zinc-400 font-black uppercase tracking-[0.3em] block">Pago de Inscripción / Matrícula</label>
+                            </div>
+                            <div className="flex gap-2 mb-3">
+                                <button onClick={() => setPagoInscripcion(VALOR_MATRICULA_ESTANDAR.toString())} className="flex-1 py-2 rounded-lg bg-emerald-900/30 hover:bg-emerald-800/50 border border-emerald-500/30 text-emerald-400 text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1"><Zap size={10}/> Matrícula Estándar</button>
+                                <button onClick={() => setPagoInscripcion("0")} className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-[9px] font-black uppercase tracking-widest transition-colors">Dejar en $0</button>
+                            </div>
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-emerald-500/50">$</span>
+                                <input type="number" value={pagoInscripcion} onChange={(e) => setPagoInscripcion(e.target.value)} className="w-full bg-black/50 border border-emerald-500/30 text-emerald-400 text-xl font-black rounded-xl py-4 pl-10 pr-4 text-right outline-none focus:border-emerald-400 transition-all shadow-inner placeholder-emerald-900/50" placeholder="0" />
+                            </div>
+                        </div>
+                        
+                        {/* CAMPO MENSUALIDAD */}
+                        <div className="pt-4 border-t border-emerald-500/10">
+                            <div className="flex justify-between items-end mb-2">
+                                <label className="text-[9px] text-zinc-400 font-black uppercase tracking-[0.3em] block">Abono al Primer Mes</label>
+                            </div>
+                            <div className="flex gap-2 mb-3">
+                                <button onClick={() => setPagoMensualidad(precioMensualidadReal.toString())} className="flex-1 py-2 rounded-lg bg-emerald-900/30 hover:bg-emerald-800/50 border border-emerald-500/30 text-emerald-400 text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-1"><Zap size={10}/> Cobrar Mes Completo</button>
+                                <button onClick={() => setPagoMensualidad("0")} className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-[9px] font-black uppercase tracking-widest transition-colors">Dejar Pendiente ($0)</button>
+                            </div>
+                            <div className="relative">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-black text-emerald-500/50">$</span>
+                                <input type="number" value={pagoMensualidad} onChange={(e) => setPagoMensualidad(e.target.value)} className="w-full bg-black/50 border border-emerald-500/30 text-emerald-400 text-xl font-black rounded-xl py-4 pl-10 pr-4 text-right outline-none focus:border-emerald-400 transition-all shadow-inner placeholder-emerald-900/50" placeholder="0" />
+                            </div>
+                            <p className="text-[8px] text-emerald-500/80 font-bold uppercase tracking-widest mt-2 text-right flex items-center justify-end gap-1"><AlertCircle size={10}/> La fecha de corte se calcula sola según este monto y el plan.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <button onClick={inscribirGimnasta} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-black py-5 rounded-[1.5rem] uppercase tracking-[0.3em] text-[10px] shadow-[0_10px_30px_rgba(6,182,212,0.3)] hover:scale-[1.02] active:scale-95 transition-all mt-6">REGISTRAR Y PROCESAR PAGOS</button>
             </div>
         </div>
     );

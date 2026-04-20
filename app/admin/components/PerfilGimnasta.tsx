@@ -3,7 +3,7 @@ import { useState } from "react";
 import { createClient } from '@supabase/supabase-js';
 import { 
     X, User, Briefcase, Edit, Camera, DollarSign, CalendarCheck, 
-    ShieldAlert, AlertCircle, Check, Trash2, Plus
+    ShieldAlert, AlertCircle, Check, Trash2
 } from "lucide-react";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -43,7 +43,6 @@ export default function PerfilGimnasta({
     const [editFoto, setEditFoto] = useState<File | null>(null);
     const [editFotoPreview, setEditFotoPreview] = useState<string | null>(perfilSeleccionado.foto_url || null);
     
-    // NUEVO ESTADO PARA MODAL DE COBRO MULTIPLE
     const [modalCobroMultiple, setModalCobroMultiple] = useState<any>(null);
 
     const gruposExistentes = Array.from(new Set(estudiantes.map((e: any) => e.grupo_familiar).filter(Boolean)));
@@ -123,77 +122,46 @@ export default function PerfilGimnasta({
     const iniciarCobro = (gimnasta: any) => {
         const mora = calcularMora(gimnasta);
         const mesesPagar = mora.meses > 0 ? mora.meses : 1;
-        setModalCobroMultiple({ 
-            gimnasta, 
-            mora, 
-            mesesSeleccionados: mesesPagar, 
-            montoMensualidad: (mora.precioIndividual * mesesPagar).toString(),
-            montoInscripcion: "0" // Por defecto en 0 para que no estorbe si solo pagan mes
-        });
+        setModalCobroMultiple({ gimnasta, mora, mesesSeleccionados: mesesPagar, montoAbono: (mora.precioIndividual * mesesPagar).toString() });
     };
 
     const procesarPago = async () => {
-        const { gimnasta, mora, montoMensualidad, montoInscripcion } = modalCobroMultiple;
-        
-        const valMensualidad = Number(montoMensualidad) || 0;
-        const valInscripcion = Number(montoInscripcion) || 0;
-        const montoTotal = valMensualidad + valInscripcion;
+        const { gimnasta, mora, montoAbono } = modalCobroMultiple;
+        const montoFinal = Number(montoAbono);
+        if (isNaN(montoFinal) || montoFinal <= 0) return setModalAlerta({ titulo: "Error", mensaje: "Ingresa un monto válido.", tipo: "error" });
 
-        if (montoTotal <= 0) return setModalAlerta({ titulo: "Error", mensaje: "Ingresa un monto superior a $0.", tipo: "error" });
-
-        // CÁLCULOS DE MENSUALIDAD Y VENCIMIENTO
         const precioFull = gimnasta.paquetes?.precio || 0;
         const precioIndividual = gimnasta.es_hermana ? (precioFull / 2) : precioFull;
-        let diasComprados = 0;
-        let saldoRestante = mora.deudaTotal;
-        let conceptoMensualidad = gimnasta.es_hermana ? "Mensualidad / Abono (Hermana)" : "Mensualidad / Abono";
-
-        if (valMensualidad > 0 && precioIndividual > 0) {
-            diasComprados = Math.round((valMensualidad / precioIndividual) * 30);
-            saldoRestante = mora.deudaTotal - valMensualidad;
-        }
-
-        // MENSAJE WHATSAPP
-        let mensajeRecibo = `¡Hola! Un saludo de Elite Gymnastics.\n\nHemos recibido exitosamente tu pago por un total de *$${montoTotal.toLocaleString()}* para la alumna *${gimnasta.nombre}*.\n\n*Detalle del pago:*\n`;
+        const diasComprados = Math.round((montoFinal / precioIndividual) * 30);
+        let conceptoFinal = gimnasta.es_hermana ? "Mensualidad / Abono (Hermana)" : "Mensualidad / Abono";
         
-        if (valInscripcion > 0) {
-            mensajeRecibo += `• Inscripción / Matrícula: *$${valInscripcion.toLocaleString()}*\n`;
-        }
-        if (valMensualidad > 0) {
-            let mesesPagados = Math.floor(valMensualidad / Math.max(precioIndividual, 1));
-            let textoMeses = mesesPagados > 0 && mora.nombres.length > 0 ? ` (${mora.nombres.slice(0, mesesPagados).join(", ")})` : "";
-            mensajeRecibo += `• Mensualidad${textoMeses}: *$${valMensualidad.toLocaleString()}*\n`;
-        }
+        let saldoRestante = mora.deudaTotal - montoFinal;
+        let mensajeRecibo = "";
 
         if (saldoRestante > 0) {
-            mensajeRecibo += `\nAún presenta un saldo pendiente de *$${saldoRestante.toLocaleString()}* en mensualidades.`;
+            if (montoFinal >= precioIndividual) {
+                let mesesPagados = Math.floor(montoFinal / precioIndividual);
+                mensajeRecibo = `¡Hola! Un saludo de Elite Gymnastics.\n\nHemos recibido exitosamente tu pago de *$${montoFinal.toLocaleString()}* correspondiente a: *${mora.nombres.slice(0, mesesPagados).join(", ")}* para la alumna *${gimnasta.nombre}*.\n\nAún presenta un saldo pendiente de *$${saldoRestante.toLocaleString()}*.`;
+            } else {
+                mensajeRecibo = `¡Hola! Un saludo de Elite Gymnastics.\n\nHemos registrado exitosamente tu abono de *$${montoFinal.toLocaleString()}* a la mensualidad de *${mora.nombres[0] || nombresMeses[new Date().getMonth()]}* para *${gimnasta.nombre}*.\n\nQueda un saldo pendiente de *$${saldoRestante.toLocaleString()}*.`;
+            }
         } else {
-            mensajeRecibo += `\nLa cuenta se encuentra al día. ¡Gracias por tu apoyo!`;
+            mensajeRecibo = `¡Hola! Un saludo de Elite Gymnastics.\n\nHemos recibido exitosamente tu pago de *$${montoFinal.toLocaleString()}* para la alumna *${gimnasta.nombre}*.\n\nLa cuenta se encuentra al día. ¡Gracias por tu apoyo!`;
         }
 
-        // REDIRECCIÓN A WHATSAPP
         if (gimnasta.telefono_acudiente && gimnasta.telefono_acudiente.length >= 10) {
             let numeroLimpio = gimnasta.telefono_acudiente.replace(/\D/g, ''); 
             if (numeroLimpio.length === 10) numeroLimpio = '57' + numeroLimpio;
             window.open(`https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensajeRecibo)}`, '_blank');
         }
         
-        // GUARDADO EN BASE DE DATOS
-        if (valInscripcion > 0) {
-            await supabase.from("pagos").insert({ gimnasta_id: gimnasta.id, monto: valInscripcion, concepto: "Inscripción / Matrícula" });
-        }
-        
-        if (valMensualidad > 0) {
-            await supabase.from("pagos").insert({ gimnasta_id: gimnasta.id, monto: valMensualidad, concepto: conceptoMensualidad });
-            // Solo rodamos la fecha si pagó algo de mensualidad
-            const fVence = new Date(gimnasta.proximo_vencimiento); 
-            fVence.setDate(fVence.getDate() + diasComprados);
-            await supabase.from("gimnastas").update({ proximo_vencimiento: fVence.toISOString() }).eq('id', gimnasta.id);
-            setPerfilSeleccionado({ ...perfilSeleccionado, proximo_vencimiento: fVence.toISOString() });
-        }
+        const fVence = new Date(gimnasta.proximo_vencimiento); fVence.setDate(fVence.getDate() + diasComprados);
+        await supabase.from("gimnastas").update({ proximo_vencimiento: fVence.toISOString() }).eq('id', gimnasta.id);
+        await supabase.from("pagos").insert({ gimnasta_id: gimnasta.id, monto: montoFinal, concepto: conceptoFinal });
         
         cargarTodo(); setModalCobroMultiple(null); 
-        setModalAlerta({ titulo: "¡Pago Procesado!", mensaje: `Se registró un total de $${montoTotal.toLocaleString()}`, tipo: "exito" });
+        setPerfilSeleccionado({ ...perfilSeleccionado, proximo_vencimiento: fVence.toISOString() });
+        setModalAlerta({ titulo: "¡Pago Procesado!", mensaje: `Se registró un abono de $${montoFinal.toLocaleString()}`, tipo: "exito" });
     };
 
     const borrarPago = async (id: number) => {
@@ -203,7 +171,7 @@ export default function PerfilGimnasta({
                 await supabase.from("pagos").delete().eq('id', id); 
                 setTimeout(() => {
                     setModalInteractivo({
-                        abierto: true, tipo: 'confirmacion', titulo: 'Ajuste de Vencimiento', mensaje: '¿Revertir también el mes de la alumna? (-30 días). Solo aplica si el recibo era de mensualidad.',
+                        abierto: true, tipo: 'confirmacion', titulo: 'Ajuste de Vencimiento', mensaje: '¿Revertir también el mes de la alumna? (-30 días).',
                         accionConfirmar: async () => {
                             const fVence = new Date(perfilSeleccionado.proximo_vencimiento); fVence.setDate(fVence.getDate() - 30);
                             await supabase.from("gimnastas").update({ proximo_vencimiento: fVence.toISOString() }).eq('id', perfilSeleccionado.id);
@@ -346,7 +314,7 @@ export default function PerfilGimnasta({
                                         <p className="text-[9px] font-black text-zinc-600 uppercase mb-3 ml-2 tracking-[0.3em]">Ledger de Transacciones</p>
                                         {pagos.filter((p:any) => p.gimnasta_id === perfilSeleccionado.id).map((p:any) => (
                                             <div key={p.id} className="flex justify-between p-5 bg-black/20 rounded-2xl border border-white/5 items-center group hover:bg-white/5 transition-colors">
-                                                <div className="text-left"><p className="text-[10px] font-black text-cyan-400 uppercase tracking-wider mb-1">{p.concepto}</p><p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">{new Date(p.created_at).toLocaleDateString()}</p><p className="text-emerald-400 font-black text-sm mt-1 tracking-tight">$ {p.monto.toLocaleString()}</p></div>
+                                                <div className="text-left"><p className="text-[10px] font-black text-white uppercase tracking-wider mb-1">{p.concepto}</p><p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">{new Date(p.created_at).toLocaleDateString()}</p><p className="text-emerald-400 font-black text-sm mt-1 tracking-tight">$ {p.monto.toLocaleString()}</p></div>
                                                 <div className="flex gap-2 opacity-30 group-hover:opacity-100 transition-opacity">
                                                     <button onClick={() => borrarPago(p.id)} className="p-3 bg-zinc-800 rounded-xl hover:bg-red-600 text-zinc-400 hover:text-white transition-colors shadow-lg"><Trash2 size={14}/></button>
                                                 </div>
@@ -369,87 +337,55 @@ export default function PerfilGimnasta({
                     </>
                 )}
 
-                {/* MODAL COBRO MULTIPLE (MENSUALIDAD + INSCRIPCION) */}
+                {/* MODAL COBRO INTERNO */}
                 {modalCobroMultiple && (
-                    <div className="absolute inset-0 bg-zinc-900 z-50 p-6 md:p-8 flex flex-col justify-center animate-in slide-in-from-bottom-10 rounded-[3rem]">
+                    <div className="absolute inset-0 bg-zinc-900 z-50 p-8 flex flex-col justify-center animate-in slide-in-from-bottom-10 rounded-[3rem]">
                         <button onClick={() => setModalCobroMultiple(null)} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-all hover:rotate-90 duration-300 bg-white/5 p-2 rounded-full"><X size={16}/></button>
                         <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-1"><DollarSign size={20} className="inline mr-1 text-emerald-400"/> Caja de Recaudo</h3>
                         
-                        <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4 mt-4">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-5 mb-5 mt-4">
                             <div>
                                 <p className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.2em]">{modalCobroMultiple.gimnasta.nombre}</p>
                                 <p className="text-xs font-black text-white uppercase mt-1 flex items-center gap-2">Estado: {modalCobroMultiple.mora.meses > 0 ? <span className="text-red-400">{modalCobroMultiple.mora.meses} meses en mora</span> : <span className="text-emerald-400">Al día</span>}</p>
                             </div>
                             <div className="text-right">
-                                <p className="text-[9px] text-zinc-500 font-black uppercase tracking-[0.2em] mb-1">Deuda Total (Plan)</p>
-                                <p className="text-lg font-black text-red-400">${modalCobroMultiple.mora.deudaTotal.toLocaleString()}</p>
+                                <p className="text-[9px] text-zinc-500 font-black uppercase tracking-[0.2em] mb-1">Deuda Total</p>
+                                <p className="text-xl font-black text-red-400">${modalCobroMultiple.mora.deudaTotal.toLocaleString()}</p>
                             </div>
                         </div>
 
-                        <p className="text-[8px] text-zinc-400 font-black uppercase tracking-[0.3em] mb-2">Autocompletar Meses</p>
-                        <div className="flex flex-wrap gap-2 mb-4">
+                        <p className="text-[9px] text-zinc-400 font-black uppercase tracking-[0.3em] mb-3">Autocompletar valor</p>
+                        <div className="flex flex-wrap gap-3 mb-6">
                             {Array.from({ length: Math.max(0, modalCobroMultiple.mora.meses - 1) }).map((_, i) => {
                                 const mesesAbono = i + 1;
                                 return (
                                     <button 
                                         key={mesesAbono}
-                                        onClick={() => setModalCobroMultiple({...modalCobroMultiple, montoMensualidad: (modalCobroMultiple.mora.precioIndividual * mesesAbono).toString()})} 
-                                        className="flex-1 min-w-[70px] bg-zinc-800 hover:bg-emerald-900/40 hover:text-emerald-400 hover:border-emerald-500/30 text-zinc-300 border border-white/5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                        onClick={() => setModalCobroMultiple({...modalCobroMultiple, montoAbono: (modalCobroMultiple.mora.precioIndividual * mesesAbono).toString()})} 
+                                        className="flex-1 min-w-[70px] bg-zinc-800 hover:bg-emerald-900/40 hover:text-emerald-400 hover:border-emerald-500/30 text-zinc-300 border border-white/5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
                                     >
                                         {mesesAbono} {mesesAbono === 1 ? 'Mes' : 'Meses'}
                                     </button>
                                 );
                             })}
                             <button 
-                                onClick={() => setModalCobroMultiple({...modalCobroMultiple, montoMensualidad: modalCobroMultiple.mora.deudaTotal > 0 ? modalCobroMultiple.mora.deudaTotal.toString() : modalCobroMultiple.mora.precioIndividual.toString()})} 
-                                className="flex-[2] min-w-[100px] bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                onClick={() => setModalCobroMultiple({...modalCobroMultiple, montoAbono: modalCobroMultiple.mora.deudaTotal > 0 ? modalCobroMultiple.mora.deudaTotal.toString() : modalCobroMultiple.mora.precioIndividual.toString()})} 
+                                className="flex-[2] min-w-[100px] bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500 hover:text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
                             >
-                                {modalCobroMultiple.mora.meses <= 0 ? "Cobrar 1 Mes" : "Saldar Toda la Deuda"}
+                                {modalCobroMultiple.mora.meses <= 0 ? "Pagar 1 Mes" : "Pagar Todo"}
                             </button>
                         </div>
                         
-                        <div className="bg-black/30 rounded-[2rem] p-5 border border-white/5 mb-6 shadow-inner relative text-left">
-                            
-                            {/* CAMPO 1: MENSUALIDAD */}
-                            <div className="mb-4">
-                                <label className="text-[9px] text-zinc-400 font-black uppercase tracking-[0.3em] mb-2 block">Abono a Mensualidad / Plan</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-emerald-500/50">$</span>
-                                    <input 
-                                        type="number" 
-                                        value={modalCobroMultiple.montoMensualidad} 
-                                        onChange={(e) => setModalCobroMultiple({...modalCobroMultiple, montoMensualidad: e.target.value})} 
-                                        className="w-full bg-zinc-950 border border-emerald-500/20 text-emerald-400 text-xl font-black rounded-xl py-3 pl-10 pr-4 text-right outline-none focus:border-emerald-400 transition-all shadow-inner" 
-                                        autoFocus 
-                                    />
-                                </div>
+                        <div className="bg-black/30 rounded-[2rem] p-6 border border-white/5 mb-8 text-center shadow-inner relative">
+                            <p className="text-[9px] text-zinc-400 font-black uppercase tracking-[0.3em] mb-4">Monto Exacto a Recibir</p>
+                            <div className="relative mb-2">
+                                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl font-black text-emerald-500/50">$</span>
+                                <input type="number" value={modalCobroMultiple.montoAbono} onChange={(e) => setModalCobroMultiple({...modalCobroMultiple, montoAbono: e.target.value})} className="w-full bg-zinc-950 border border-emerald-500/20 text-emerald-400 text-3xl font-black rounded-2xl py-6 pl-12 pr-6 text-right outline-none focus:border-emerald-400 transition-all shadow-inner" autoFocus />
                             </div>
-
-                            {/* CAMPO 2: INSCRIPCION */}
-                            <div className="mb-2">
-                                <label className="text-[9px] text-cyan-400 font-black uppercase tracking-[0.3em] mb-2 block flex items-center gap-1"><Plus size={10}/> Pago de Inscripción / Matrícula</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-cyan-500/50">$</span>
-                                    <input 
-                                        type="number" 
-                                        value={modalCobroMultiple.montoInscripcion} 
-                                        onChange={(e) => setModalCobroMultiple({...modalCobroMultiple, montoInscripcion: e.target.value})} 
-                                        className="w-full bg-zinc-950 border border-cyan-500/20 text-cyan-400 text-xl font-black rounded-xl py-3 pl-10 pr-4 text-right outline-none focus:border-cyan-400 transition-all shadow-inner" 
-                                        placeholder="0"
-                                    />
-                                </div>
-                                <p className="text-[8px] uppercase font-black tracking-widest text-zinc-500 mt-2 text-right">Deja en 0 si ya fue pagada.</p>
-                            </div>
-
-                            <div className="border-t border-white/10 pt-4 mt-2 flex justify-between items-center">
-                                <span className="text-[10px] text-zinc-300 font-black uppercase tracking-widest">Total a Recibir:</span>
-                                <span className="text-2xl font-black text-white">
-                                    ${((Number(modalCobroMultiple.montoMensualidad) || 0) + (Number(modalCobroMultiple.montoInscripcion) || 0)).toLocaleString()}
-                                </span>
-                            </div>
+                            <p className="text-[8px] uppercase font-black tracking-widest text-zinc-500 mt-3">Toca los botones o edita el valor a mano.</p>
                         </div>
 
-                        <button onClick={procesarPago} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl uppercase tracking-[0.2em] text-[10px] shadow-[0_10px_30px_rgba(34,197,94,0.3)] active:scale-95 transition-all flex justify-center items-center gap-2"><Check size={16}/> APROBAR Y ENVIAR RECIBO</button>
+                        <button onClick={procesarPago} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-5 rounded-2xl uppercase tracking-[0.2em] text-[10px] shadow-[0_10px_30px_rgba(34,197,94,0.3)] active:scale-95 transition-all flex justify-center items-center gap-2"><Check size={18}/> APROBAR Y ENVIAR RECIBO</button>
                     </div>
                 )}
             </div>
