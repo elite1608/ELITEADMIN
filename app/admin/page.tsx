@@ -208,11 +208,9 @@ export default function EliteManager() {
             />
         )}
         
-        {/* --- ESTOS SON LOS 3 COMPONENTES QUE FALTABAN --- */}
         {vistaActual === 'revision_pagos' && <RevisionPagos />}
         {vistaActual === 'competencias' && <CompetenciasModulo estudiantes={estudiantes} esAdmin={true} />}
         {vistaActual === 'mensajes' && <MensajesModulo estudiantes={estudiantes} />}
-        {/* ------------------------------------------------ */}
 
         {vistaActual === 'directorio' && (
             <DirectorioModulo 
@@ -255,10 +253,13 @@ export default function EliteManager() {
             />
         )}
 
+        {/* --- AQUÍ ESTÁN LAS DOS LÍNEAS NUEVAS AÑADIDAS --- */}
         {vistaActual === 'gastos' && (
             <FinanzasModulo 
                 ingresosExtra={ingresosExtra}
                 gastosVarios={gastosVarios}
+                pagos={pagos}
+                pagosProfes={pagosProfes}
                 setModalAlerta={setModalAlerta}
                 cargarTodo={cargarTodo}
             />
@@ -292,6 +293,53 @@ export default function EliteManager() {
                 gruposExistentes={gruposExistentes}
             />
         )}
+
+        {/* ================= MODALES GLOBALES DE ALERTA Y CONFIRMACIÓN ================= */}
+        {modalAlerta && (
+            <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2rem] max-w-sm w-full text-center shadow-2xl scale-100 animate-in zoom-in-95">
+                    <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-6 ${modalAlerta.tipo === 'error' ? 'bg-red-500/20 text-red-500' : 'bg-emerald-500/20 text-emerald-500'}`}>
+                        {modalAlerta.tipo === 'error' ? <ShieldAlert size={32}/> : <UserCheck size={32}/>}
+                    </div>
+                    <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-2">{modalAlerta.titulo}</h3>
+                    <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest mb-8">{modalAlerta.mensaje}</p>
+                    <button onClick={() => setModalAlerta(null)} className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Entendido</button>
+                </div>
+            </div>
+        )}
+
+        {modalInteractivo && (
+            <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+                <div className="bg-zinc-900 border border-white/10 p-8 rounded-[2rem] max-w-sm w-full text-center shadow-2xl scale-100 animate-in zoom-in-95">
+                    <h3 className="text-xl font-black uppercase tracking-tighter text-white mb-2">{modalInteractivo.titulo}</h3>
+                    <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest mb-6">{modalInteractivo.mensaje}</p>
+                    
+                    {modalInteractivo.tipo === 'prompt' && (
+                        <input 
+                            type="text" 
+                            id="promptInput"
+                            placeholder={modalInteractivo.placeholder} 
+                            className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 mb-6 text-white text-center font-black uppercase text-xs outline-none focus:border-cyan-500"
+                        />
+                    )}
+
+                    <div className="flex gap-3">
+                        <button onClick={() => setModalInteractivo(null)} className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-zinc-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Cancelar</button>
+                        <button 
+                            onClick={() => {
+                                const val = modalInteractivo.tipo === 'prompt' ? (document.getElementById('promptInput') as HTMLInputElement)?.value : undefined;
+                                modalInteractivo.accionConfirmar(val);
+                                setModalInteractivo(null);
+                            }} 
+                            className={`flex-1 py-4 rounded-xl text-[10px] text-white font-black uppercase tracking-widest transition-all shadow-lg ${modalInteractivo.tipo === 'peligro' ? 'bg-red-600 hover:bg-red-500' : 'bg-cyan-600 hover:bg-cyan-500'}`}
+                        >
+                            Confirmar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+        {/* ============================================================================== */}
 
       </main>
     </div>
